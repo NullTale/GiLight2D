@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
@@ -17,7 +18,6 @@ namespace GiLight2D
 		private const string k_GiShader    = "Hidden/GiLight2D/Gi";
 		private const string k_BlurShader  = "Hidden/GiLight2D/Blur";
 		private const string k_DistShader  = "Hidden/GiLight2D/Distance";
-		private const string k_NoiseShader = "Hidden/GiLight2D/Noise";
 		
 		private static readonly int s_MainTexId     = Shader.PropertyToID("_MainTex");
 		private static readonly int s_NoiseOffsetId = Shader.PropertyToID("_NoiseOffset");
@@ -79,6 +79,10 @@ namespace GiLight2D
 		[SerializeField]
 		[Tooltip("Run render feature in scene view project window.")]
 		private  bool				_runInSceneView;
+		
+		
+		[SerializeField]
+		private ShaderCollection _shaders;
 		
 		private Pass				_pass;
 		private CameraToOutputPass  _cameraToOutputPass;
@@ -145,6 +149,7 @@ namespace GiLight2D
 			private RanderTarget      _tmp;
 			private RenderTargetFlip  _jfa;
 			private RanderTarget      _output;
+			private RTHandle		  _cameraOutput;
 			
 			// =======================================================================
             public void Init()
@@ -169,9 +174,9 @@ namespace GiLight2D
 				ref var desc         = ref _owner._rtDesc;
 				var     cmd          = CommandBufferPool.Get(nameof(GiLight2DFeature));
 #if UNITY_2021
-				var     cameraOutput = RTHandles.Alloc(renderingData.cameraData.renderer.cameraColorTarget);
+				_cameraOutput = RTHandles.Alloc(renderingData.cameraData.renderer.cameraColorTarget);
 #else
-				var     cameraOutput = renderingData.cameraData.renderer.cameraColorTargetHandle.nameID;
+				_cameraOutput = renderingData.cameraData.renderer.cameraColorTargetHandle;
 #endif
 				// allocate render textures
 				desc.colorFormat = RenderTextureFormat.ARGB32;
@@ -320,7 +325,7 @@ namespace GiLight2D
 					case FinalBlit.Camera:
 					{
 						// alpha channel will be added in copy pass (if required)
-						cmd.SetRenderTarget(cameraOutput);
+						cmd.SetRenderTarget(_cameraOutput);
 						cmd.DrawMesh(k_ScreenMesh, Matrix4x4.identity, _owner._giMat, 0, 0);
 					} break;
 					
@@ -333,7 +338,7 @@ namespace GiLight2D
 					var dest = _owner._output._finalBlit switch
 					{
 						FinalBlit.Texture => _output.Handle,
-						FinalBlit.Camera  => cameraOutput,
+						FinalBlit.Camera  => _cameraOutput,
 						_                 => throw new ArgumentOutOfRangeException()
 					};
 					
@@ -380,6 +385,9 @@ namespace GiLight2D
 				
 				if (_owner.ForceTextureOutput)
 					_output.Release(cmd);
+#if !UNITY_2022_1_OR_NEWER
+				RTHandles.Release(_cameraOutput);
+#endif
 			}
         }
 
@@ -388,7 +396,8 @@ namespace GiLight2D
             public  GiLight2DFeature _owner;
 			private RanderTarget     _tmp;
 			private RanderTarget     _buffer;
-			
+			private RTHandle         _cameraOutput;
+
 			// =======================================================================
 			public void Init()
 			{
@@ -401,19 +410,19 @@ namespace GiLight2D
 			{
 				var     cmd  = CommandBufferPool.Get(nameof(GiLight2DFeature));
 				ref var desc = ref _owner._rtDesc;
-#if UNITY_2021
-				var     cameraOutput = RTHandles.Alloc(renderingData.cameraData.renderer.cameraColorTarget);
+#if UNITY_2022_1_OR_NEWER
+				_cameraOutput = renderingData.cameraData.renderer.cameraColorTargetHandle;
 #else
-				var     cameraOutput = renderingData.cameraData.renderer.cameraColorTargetHandle.nameID;
+				_cameraOutput = RTHandles.Alloc(renderingData.cameraData.renderer.cameraColorTarget);
 #endif
 				
 				// add alpha channel, after potential post processing wich set it to one
 				desc.colorFormat = renderingData.cameraData.cameraTargetDescriptor.colorFormat;
 				_tmp.Get(cmd, desc);
 
-				_blit(cmd, cameraOutput, _tmp.Handle, _owner._blitMat);
+				_blit(cmd, _cameraOutput, _tmp.Handle, _owner._blitMat);
 				cmd.SetGlobalTexture(s_AlphaTexId, _buffer.Handle.nameID);
-				_blit(cmd, _tmp.Handle, cameraOutput, _owner._alphaMat);
+				_blit(cmd, _tmp.Handle, _cameraOutput, _owner._alphaMat);
 				
 				context.ExecuteCommandBuffer(cmd);
 				CommandBufferPool.Release(cmd);
@@ -423,6 +432,9 @@ namespace GiLight2D
 			{
 				_tmp.Release(cmd);
 				_buffer.Release(cmd);
+#if !UNITY_2022_1_OR_NEWER
+				RTHandles.Release(_cameraOutput);
+#endif
 			}
 		}
 		
@@ -517,6 +529,18 @@ namespace GiLight2D
 			[Range(0.01f, 1f)]
 			public float _noiseScale = 1f;
 		}
+
+		[Serializable]
+		public class ShaderCollection
+		{
+			public Shader _blit;
+			public Shader _alpha;
+			public Shader _uv;
+			public Shader _jfa;
+			public Shader _gi;
+			public Shader _dist;
+			//public Shader _blur;
+		}
 		
 		public enum ScaleMode
 		{
@@ -556,16 +580,19 @@ namespace GiLight2D
             _cameraToOutputPass = new CameraToOutputPass() { _owner = this };
             _cameraToOutputPass.Init();
 
-			_uvMat    = new Material(Shader.Find(k_UvShader));
-			_jfaMat   = new Material(Shader.Find(k_JfaShader));
-			_blitMat  = new Material(Shader.Find(k_BlitShader));
-			_alphaMat = new Material(Shader.Find(k_AlphaShader));
-			_distMat  = new Material(Shader.Find(k_DistShader));
-			_giMat    = new Material(Shader.Find(k_GiShader));
+			_validateShaders();
+			
+			_uvMat    = new Material(_shaders._uv);
+			_jfaMat   = new Material(_shaders._jfa);
+			_blitMat  = new Material(_shaders._blit);
+			_alphaMat = new Material(_shaders._alpha);
+			_distMat  = new Material(_shaders._dist);
+			_giMat    = new Material(_shaders._gi);
 			if (_falloff.enabled)
 				_giMat.EnableKeyword("FALLOFF_IMPACT");
 			if (_intensity.enabled)
 				_giMat.EnableKeyword("INTENSITY_IMPACT");
+			
 			_setNoiseState(_noiseOptions._noiseMode);
 			
 			if (k_ScreenMesh == null)
@@ -612,6 +639,7 @@ namespace GiLight2D
 				renderer.EnqueuePass(_cameraToOutputPass);
         }
 
+		
 		protected override void Dispose(bool disposing)
 		 {
 			 CoreUtils.Destroy(_uvMat);
@@ -623,6 +651,29 @@ namespace GiLight2D
 		 }
 
 		// =======================================================================
+		private void _validateShaders()
+		{
+#if UNITY_EDITOR
+			_validate(ref _shaders._blit,	k_BlitShader);
+			_validate(ref _shaders._alpha,	k_AlphaShader);
+			_validate(ref _shaders._uv,		k_UvShader);
+			_validate(ref _shaders._jfa,	k_JfaShader);
+			_validate(ref _shaders._gi,		k_GiShader);
+			//_validate(ref _shaders._blur,	k_BlurShader);
+			_validate(ref _shaders._dist,	k_DistShader);
+			
+			UnityEditor.EditorUtility.SetDirty(this);
+#endif
+			// -----------------------------------------------------------------------
+			void _validate(ref Shader shader, string path)
+			{
+				if (shader != null)
+					return;
+				
+				shader =  Shader.Find(path);
+			}
+		}
+		
 		private void _setupDesc(in RenderingData renderingData)
 		{
 			var camDesc = renderingData.cameraData.cameraTargetDescriptor;
