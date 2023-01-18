@@ -1,0 +1,17 @@
+{
+  "name": "www.nulltale.GiLight2D",
+  "displayName": "Global Illumination",
+  "version": "1.0.0",
+  "unity": "2020.3",
+  "description": "Global illumination render feature",
+  "documentationUrl": "https://github.com/NullTale/GiLight2D",
+  "licensesUrl": "https://github.com/NullTale/GiLight2D/blob/master/LICENSE.md",
+  "author": {
+    "name": "NullTale",
+    "email": "nulltale@gmail.com",
+    "url": "https://github.com/NullTale"
+  },
+  "dependencies": {
+  },
+  "hideInEditor": false
+}

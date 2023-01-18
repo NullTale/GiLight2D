@@ -1,0 +1,18 @@
+{
+    "name": "GiLight2D.Editor",
+    "rootNamespace": "",
+    "references": [
+        "GUID:6477b8dbb0b0f3d4b9afc6699feeb7ce"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
