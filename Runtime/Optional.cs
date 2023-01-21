@@ -18,7 +18,7 @@ namespace GiLight2D
             set => enabled = value;
         }
 
-        public T    Value
+        public T Value
         {
             get => value;
             set => this.value = value;

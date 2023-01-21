@@ -10,7 +10,7 @@ namespace GiLight2D.Editor
         // =======================================================================
         public override float GetPropertyHeight(SerializedProperty property, GUIContent label)
         {
-            var noiseMode  = property.FindPropertyRelative(nameof(GiLight2DFeature.NoiseOptions._noiseMode));
+            var noiseMode = property.FindPropertyRelative(nameof(GiLight2DFeature.NoiseOptions._noiseMode));
             var linesCount = ((GiLight2DFeature.NoiseMode)noiseMode.intValue) switch
             {
                 GiLight2DFeature.NoiseMode.Dynamic => 2,
