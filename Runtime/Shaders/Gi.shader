@@ -46,9 +46,9 @@ Shader "Hidden/GiLight2D/Gi"
             {
                 float4 vertex : SV_POSITION;
                 float2 uv : TEXCOORD0;
-                #if defined(FRAGMENT_RANDOM) || defined(TEXTURE_RANDOM)
+#if defined(FRAGMENT_RANDOM) || defined(TEXTURE_RANDOM)
                 float2 noise_uv : TEXCOORD1;
-                #endif
+#endif
             };
 
             // =======================================================================
@@ -58,9 +58,9 @@ Shader "Hidden/GiLight2D/Gi"
                 o.vertex = v.vertex * _Scale;
                 o.uv = v.uv;
 
-                #if defined(FRAGMENT_RANDOM) || defined(TEXTURE_RANDOM)
+#if defined(FRAGMENT_RANDOM) || defined(TEXTURE_RANDOM)
                 o.noise_uv = v.uv + _NoiseOffset;
-                #endif
+#endif
                 return o;
             }
 
@@ -100,13 +100,13 @@ Shader "Hidden/GiLight2D/Gi"
             {
                 float3 result = AMBIENT;
 
-                #if defined(FRAGMENT_RANDOM)
+#if defined(FRAGMENT_RANDOM)
                 const float rand = _random(i.noise_uv);
-                #elif defined(TEXTURE_RANDOM)
+#elif defined(TEXTURE_RANDOM)
 				const float rand = tex2D(_NoiseTex, i.noise_uv).r * 3.1415;
-                #else
+#else
 				const float rand = 0;
-                #endif
+#endif
 
                 for (float f = 0.; f < _Samples; f++)
                 {
@@ -114,10 +114,9 @@ Shader "Hidden/GiLight2D/Gi"
                     result += trace(i.uv, float2(cos(t), sin(t)));
                 }
 
-                #ifdef INTENSITY_IMPACT
+#ifdef INTENSITY_IMPACT
                 result *= _Intensity;
-                #endif
-
+#endif
                 result /= _Samples;
 
                 return float4(result, 1);

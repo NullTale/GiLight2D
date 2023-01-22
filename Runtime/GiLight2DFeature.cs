@@ -9,7 +9,7 @@ using Random = UnityEngine.Random;
 
 namespace GiLight2D
 {
-    public class GiLight2DFeature : ScriptableRendererFeature
+    public partial class GiLight2DFeature : ScriptableRendererFeature
     {
         private const string k_BlitShader  = "Hidden/GiLight2D/Blit";
         private const string k_AlphaShader = "Hidden/GiLight2D/Alpha";
@@ -65,6 +65,8 @@ namespace GiLight2D
         private Optional<RangeFloat> _border = new Optional<RangeFloat>(new RangeFloat(new Vector2(.0f, 3f), 0f), false);
         [SerializeField]
         private ScaleModeData       _scaleMode = new ScaleModeData();
+        [SerializeField]
+        private BlurOptions         _blurOptions = new BlurOptions();
 		
         [SerializeField]
         private Output              _output = new Output();
@@ -83,8 +85,8 @@ namespace GiLight2D
         [SerializeField]
         private ShaderCollection    _shaders = new ShaderCollection();
 		
-        private Pass                _pass;
-        private CameraToOutputPass  _cameraToOutputPass;
+        private GiPass              _giPass;
+        private CameraAlphaPass     _cameraAlphaPass;
 		
         private Material _uvMat;
         private Material _jfaMat;
@@ -92,6 +94,7 @@ namespace GiLight2D
         private Material _giMat;
         private Material _distMat;
         private Material _alphaMat;
+        private Material _blurMat;
 		
         private RenderTextureDescriptor _rtDesc = new RenderTextureDescriptor(0, 0, GraphicsFormat.None, 0, 0);
         private Vector2Int              _rtRes  = Vector2Int.zero;
@@ -137,259 +140,7 @@ namespace GiLight2D
         }
 
         // =======================================================================
-        private class Pass : ScriptableRenderPass
-        {
-            public GiLight2DFeature _owner;
-            
-            private FilteringSettings _filtering;
-            private RenderStateBlock  _override;
-            private RanderTarget      _buffer;
-            private RanderTarget      _dist;
-            private RanderTarget      _tmp;
-            private RenderTargetFlip  _jfa;
-            private RanderTarget      _output;
-            private RTHandle          _cameraOutput;
-			
-            // =======================================================================
-            public void Init()
-            {
-                renderPassEvent = _owner._event;
-				
-                _buffer = new RanderTarget().Allocate(nameof(_buffer));
-                _dist   = new RanderTarget().Allocate(nameof(_dist));
-                _tmp    = new RanderTarget().Allocate(nameof(_tmp));
-                _jfa    = new RenderTargetFlip(new RanderTarget().Allocate($"{nameof(_jfa)}_a"), new RanderTarget().Allocate($"{nameof(_jfa)}_b"));
-                if (_owner.ForceTextureOutput)
-                    _output = new RanderTarget().Allocate(_owner._output._outputGlobalTexture);
-				
-                _filtering = new FilteringSettings(RenderQueueRange.transparent, _owner._mask);
-                _override  = new RenderStateBlock(RenderStateMask.Nothing);
-            }
-
-            public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
-            {
-                // allocate resources
-                ref var res  = ref _owner._rtRes;
-                ref var desc = ref _owner._rtDesc;
-                var     cmd  = CommandBufferPool.Get(nameof(GiLight2DFeature));
-#if UNITY_2021
-                _cameraOutput = RTHandles.Alloc(renderingData.cameraData.renderer.cameraColorTarget);
-#else
-				_cameraOutput = renderingData.cameraData.renderer.cameraColorTargetHandle;
-#endif
-                // allocate render textures
-                desc.colorFormat = RenderTextureFormat.ARGB32;
-                if (_owner._depthStencil)
-                {
-                    // set depth stencil format from rendering camera 
-                    desc.depthStencilFormat = renderingData.cameraData.cameraTargetDescriptor.depthStencilFormat;
-                    _buffer.Get(cmd, desc);
-                    desc.stencilFormat = GraphicsFormat.None;
-                }
-                else
-                {
-                    _buffer.Get(cmd, desc);
-                }
-
-                if (_owner.ForceTextureOutput)
-                    _output.Get(cmd, desc);
-
-                desc.colorFormat = RenderTextureFormat.RG16;
-                _jfa.Get(cmd, desc);
-				
-                desc.colorFormat = RenderTextureFormat.R16;
-                _dist.Get(cmd, desc);
-
-                // render with layer mask
-                var cullResults = renderingData.cullResults;
-                if (_owner.HasGiBorder)
-                {
-                    // expand camera ortho projection if has Gi border, drawback is that we need to do cull results second time
-                    // it is not necessary if we want to draw with separate camera
-                    ref var cameraData = ref renderingData.cameraData;
-                    var     camera     = cameraData.camera;
-                    var     aspect     = camera.aspect;
-                    var     ySize      = camera.orthographicSize + _owner._border.Value.Value;
-                    var     xSize      = ySize * aspect;
-					
-                    var projectionMatrix = Matrix4x4.Ortho(-xSize, xSize, -ySize, ySize, camera.nearClipPlane, camera.farClipPlane);
-                    projectionMatrix = GL.GetGPUProjectionMatrix(projectionMatrix, cameraData.IsCameraProjectionMatrixFlipped());
-
-                    var viewMatrix = cameraData.GetViewMatrix();
-                    RenderingUtils.SetViewAndProjectionMatrices(cmd, viewMatrix, projectionMatrix, false);
-					
-                    // cull results
-                    camera.TryGetCullingParameters(out var cullingParameters);
-                    cullingParameters.cullingMatrix = projectionMatrix * viewMatrix;
-					 
-                    var planes = GeometryUtility.CalculateFrustumPlanes(cullingParameters.cullingMatrix);
-                    for (var n = 0; n < 6; n ++) 
-                        cullingParameters.SetCullingPlane(n, planes[n]);
-
-                    cullResults = context.Cull(ref cullingParameters);
-                }
-				
-                cmd.SetRenderTarget(_buffer.Handle.nameID);
-                cmd.ClearRenderTarget(_owner._depthStencil ? RTClearFlags.All : RTClearFlags.Color, Color.clear, 1f, 0);
-                context.ExecuteCommandBuffer(cmd);
-                cmd.Clear();
-                var drawSettings = CreateDrawingSettings(k_ShaderTags, ref renderingData, SortingCriteria.CommonTransparent);
-                context.DrawRenderers(cullResults, ref drawSettings, ref _filtering, ref _override);
-				
-                if (_owner.HasGiBorder)
-                {
-                    ref var cameraData = ref renderingData.cameraData;
-                    RenderingUtils.SetViewAndProjectionMatrices(cmd, cameraData.GetViewMatrix(), cameraData.GetGPUProjectionMatrix(), false);
-                }
-				
-                // draw uv with alpha mask 
-                _blit(_buffer.Handle, _jfa.From.Handle, _owner._uvMat);
-				
-                // fluid fill uv coords
-                var steps    = Mathf.CeilToInt(Mathf.Log(res.x * res.y) / 2f) + 1;
-                var stepSize = new Vector2(res.x / (float)res.y, 1f);
-
-                for (var n = 0; n < steps; n++)
-                {
-                    stepSize /= 2;
-					
-                    cmd.SetGlobalVector(s_StepSizeId, stepSize);
-					
-                    _blit(_jfa.From.Handle, _jfa.To.Handle, _owner._jfaMat);
-                    _jfa.Flip();
-                }
-
-                // evaluate distance from uv coords
-                _blit(_jfa.From.Handle, _dist.Handle, _owner._distMat);
-                _jfa.Flip();
-				
-                // apply raytracer, final blit
-                cmd.SetGlobalTexture(s_ColorTexId, _buffer.Handle.nameID);
-                cmd.SetGlobalTexture(s_DistTexId, _dist.Handle.nameID);
-                _owner._giMat.SetVector(s_AspectId, new Vector4(res.x / (float)res.y, 1f));
-                _owner._giMat.SetFloat(s_SamplesId, _owner._samples);
-                if (_owner._falloff.Enabled)
-                    _owner._giMat.SetFloat(s_FalloffId, _owner._falloff.Value.Value);
-                if (_owner._intensity.Enabled)
-                    _owner._giMat.SetFloat(s_IntensityId, _owner._intensity.Value.Value);
-				
-                switch (_owner._noiseOptions._noiseMode)
-                {
-                    case NoiseMode.Dynamic:
-                    {
-                        _owner._giMat.SetVector(s_NoiseOffsetId, new Vector4(Random.value, Random.value, 0, 0));
-                        _owner._giMat.SetTexture(s_NoiseTexId, k_Noise);
-                    } break;
-                    case NoiseMode.Static:
-                    {
-                        _owner._giMat.SetTexture(s_NoiseTexId, k_Noise);
-                    } break;
-                    case NoiseMode.Shader:
-                    {
-                        _owner._giMat.SetVector(s_NoiseOffsetId, new Vector4(Random.value, Random.value, 0, 0));
-                    } break;
-                    case NoiseMode.None:
-                    {
-                        _owner._giMat.SetTexture(s_NoiseTexId, Texture2D.blackTexture);
-                    } break;
-                    default:
-                        throw new ArgumentOutOfRangeException();
-                }
-
-
-                switch (_owner._output._finalBlit)
-                {
-                    case FinalBlit.Texture:
-                    {
-                        if (_owner._alpha)
-                        {
-                            // draw in to the blit texture, then to the output with alpha combine
-                            desc.colorFormat = RenderTextureFormat.ARGB32;
-                            _tmp.Get(cmd, desc);
-
-                            cmd.SetRenderTarget(_tmp.Handle.nameID);
-                            cmd.DrawMesh(k_ScreenMesh, Matrix4x4.identity, _owner._giMat, 0, 0);
-
-                            cmd.SetGlobalTexture(s_AlphaTexId, _buffer.Handle.nameID);
-                            _blit(_tmp.Handle, _output.Handle, _owner._alphaMat);
-                        }
-                        else
-                        {
-                            cmd.SetRenderTarget(_output.Handle.nameID);
-                            cmd.DrawMesh(k_ScreenMesh, Matrix4x4.identity, _owner._giMat, 0, 0);
-                        }
-                    } break;
-					
-                    case FinalBlit.Camera:
-                    {
-                        // alpha channel will be added in copy pass (if required)
-                        cmd.SetRenderTarget(_cameraOutput);
-                        cmd.DrawMesh(k_ScreenMesh, Matrix4x4.identity, _owner._giMat, 0, 0);
-                    } break;
-					
-                    default:
-                        throw new ArgumentOutOfRangeException();
-                }
-				
-                if (_owner._outputOverride != DebugOutput.None)
-                {
-                    var dest = _owner._output._finalBlit switch
-                    {
-                        FinalBlit.Texture => _output.Handle,
-                        FinalBlit.Camera  => _cameraOutput,
-                        _                 => throw new ArgumentOutOfRangeException()
-                    };
-					
-                    switch (_owner._outputOverride)
-                    {
-                        case DebugOutput.Objects:
-                            _blit(_buffer.Handle, dest, _owner._blitMat);
-                            break;
-                        case DebugOutput.Flood:
-                            _blit(_jfa.To.Handle, dest, _owner._blitMat);
-                            break;
-                        case DebugOutput.Distance:
-                            _blit(_dist.Handle, dest, _owner._blitMat);
-                            break;
-                        case DebugOutput.None:
-                        default:
-                            throw new ArgumentOutOfRangeException();
-                    }
-                }
-				
-                _execute();
-				
-                // -----------------------------------------------------------------------
-                void _blit(RTHandle from, RTHandle to, Material mat)
-                {
-                    GiLight2DFeature._blit(cmd, from, to, mat);
-                }
-
-                void _execute()
-                {
-                    context.ExecuteCommandBuffer(cmd);
-                    CommandBufferPool.Release(cmd);
-                }
-            }
-
-            public override void FrameCleanup(CommandBuffer cmd)
-            {
-                _buffer.Release(cmd);
-                _dist.Release(cmd);
-                _jfa.Release(cmd);
-				
-                if (_owner._alpha)
-                    _tmp.Release(cmd);
-				
-                if (_owner.ForceTextureOutput)
-                    _output.Release(cmd);
-#if !UNITY_2022_1_OR_NEWER
-                RTHandles.Release(_cameraOutput);
-#endif
-            }
-        }
-
-        private class CameraToOutputPass : ScriptableRenderPass
+        private class CameraAlphaPass : ScriptableRenderPass
         {
             public  GiLight2DFeature _owner;
             private RanderTarget     _tmp;
@@ -458,7 +209,7 @@ namespace GiLight2D
                 return this;
             }
 			
-            public void Get(CommandBuffer cmd, RenderTextureDescriptor desc)
+            public void Get(CommandBuffer cmd, in RenderTextureDescriptor desc)
             {
                 cmd.GetTemporaryRT(Id, desc);
             }
@@ -496,13 +247,77 @@ namespace GiLight2D
                 _b.Release(cmd);
             }
 
-            public void Get(CommandBuffer cmd, RenderTextureDescriptor desc)
+            public void Get(CommandBuffer cmd, in RenderTextureDescriptor desc)
             {
                 _a.Get(cmd, desc);
                 _b.Get(cmd, desc);
             }
         }
+        
+        public class RenderTargetPostProcess
+        {
+            RenderTargetFlip _flip;
+            private RTHandle _result;
+            private Material _giMat;
+            private int      _passes;
+            private int      _passesLeft;
+			
+            // =======================================================================
+            public RenderTargetPostProcess(RanderTarget a, RanderTarget b)
+            {
+                _flip = new RenderTargetFlip(a, b);
+            }
 
+            public void Setup(CommandBuffer cmd, in RenderTextureDescriptor desc, RTHandle output, int passes, Material giMat)
+            {
+                _passes = passes;
+                _passesLeft = passes;
+                _result = output;
+                _giMat = giMat;
+                
+                if (passes > 0)
+                {
+                    // draw gi to the tmp flip texture
+                    _flip.Get(cmd, in desc);
+                    
+                    cmd.SetRenderTarget(_flip.To.Handle.nameID);
+                    cmd.DrawMesh(k_ScreenMesh, Matrix4x4.identity, _giMat, 0, 0);
+                }
+                else
+                {
+                    // no post process added, draw gi to the output
+                    cmd.SetRenderTarget(_result.nameID);
+                    cmd.DrawMesh(k_ScreenMesh, Matrix4x4.identity, _giMat, 0, 0);
+                }
+            }
+
+            public void Apply(CommandBuffer cmd, Material mat)
+            {
+                // draw in output or tmp render target
+                _flip.Flip();
+                _passesLeft --;
+                
+                cmd.SetGlobalTexture(s_MainTexId, _flip.From.Handle.nameID);
+                cmd.SetRenderTarget(_passesLeft > 0 ? _flip.To.Handle.nameID : _result.nameID);
+                cmd.DrawMesh(k_ScreenMesh, Matrix4x4.identity, mat, 0, 0);
+                
+            }
+            
+            public void Release(CommandBuffer cmd)
+            {
+                if (_passes > 0)
+                {
+                    _flip.Release(cmd);
+                }
+            }
+        }
+
+        [Serializable]
+        public class BlurOptions
+        {
+            public bool _enable;
+        }
+        
         [Serializable]
         public class ScaleModeData
         {
@@ -537,7 +352,7 @@ namespace GiLight2D
             public Shader _jfa;
             public Shader _gi;
             public Shader _dist;
-            //public Shader _blur;
+            public Shader _blur;
         }
 		
         public enum ScaleMode
@@ -572,11 +387,11 @@ namespace GiLight2D
         // =======================================================================
         public override void Create()
         {
-            _pass = new Pass() { _owner = this };
-            _pass.Init();
+            _giPass = new GiPass() { _owner = this };
+            _giPass.Init();
 			
-            _cameraToOutputPass = new CameraToOutputPass() { _owner = this };
-            _cameraToOutputPass.Init();
+            _cameraAlphaPass = new CameraAlphaPass() { _owner = this };
+            _cameraAlphaPass.Init();
 
             _validateShaders();
 			
@@ -623,9 +438,9 @@ namespace GiLight2D
 			
             _setupDesc(in renderingData);
 
-            renderer.EnqueuePass(_pass);
+            renderer.EnqueuePass(_giPass);
             if (_alpha && _output._finalBlit == FinalBlit.Camera)
-                renderer.EnqueuePass(_cameraToOutputPass);
+                renderer.EnqueuePass(_cameraAlphaPass);
         }
 
         // =======================================================================
@@ -635,6 +450,7 @@ namespace GiLight2D
             _jfaMat   = new Material(_shaders._jfa);
             _blitMat  = new Material(_shaders._blit);
             _alphaMat = new Material(_shaders._alpha);
+            _blurMat = new Material(_shaders._blur);
             
             _distMat  = new Material(_shaders._dist);
             if (_distOffset.Enabled)
@@ -658,7 +474,7 @@ namespace GiLight2D
             _validate(ref _shaders._uv,		k_UvShader);
             _validate(ref _shaders._jfa,	k_JfaShader);
             _validate(ref _shaders._gi,		k_GiShader);
-            //_validate(ref _shaders._blur,	k_BlurShader);
+            _validate(ref _shaders._blur,	k_BlurShader);
             _validate(ref _shaders._dist,	k_DistShader);
 			
             UnityEditor.EditorUtility.SetDirty(this);
