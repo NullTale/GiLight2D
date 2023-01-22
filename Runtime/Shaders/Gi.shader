@@ -68,7 +68,7 @@ Shader "Hidden/GiLight2D/Gi"
             {
                 float2 uvPos = uv;
 
-                //[unroll]
+                [unroll]
                 for (int n = 0; n < STEPS; n++)
                 {
                     const float4 col = tex2D(_ColorTex, uvPos).rgba;

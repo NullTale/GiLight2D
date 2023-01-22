@@ -47,28 +47,27 @@ namespace GiLight2D
         [Tooltip("Enable depth stencil buffer for Gi objects rendering.")]
         private bool                _depthStencil = true;
 		
-        [Tooltip("How much rays to emit from each point.")]
+        [Tooltip("How many rays to emit from each pixel.")]
         [SerializeField]
         private int                 _samples = 100;
         [SerializeField]
         [Tooltip("Distance map additional impact for raytracing.")]
-        [Range(0.0f, 0.07f)]
-        private float               _distOffset = 0.007f;
+        private Optional<RangeFloat> _distOffset = new Optional<RangeFloat>(new RangeFloat(new Vector2(.0f, .07f), 0.007f), false);
         [SerializeField]
         private Optional<RangeFloat> _falloff = new Optional<RangeFloat>(new RangeFloat(new Vector2(.01f, 1f), 1f), false);
         [SerializeField]
         private Optional<RangeFloat> _intensity = new Optional<RangeFloat>(new RangeFloat(new Vector2(.0f, 3f), 1f), false);
         [SerializeField]
-        private NoiseOptions        _noiseOptions;
+        private NoiseOptions        _noiseOptions = new NoiseOptions();
         private Vector2Int          _noiseResolution;
         [SerializeField]
         [Tooltip("Orthographic additional camera space, to make objects visible outside the camera frame.")]
         private Optional<RangeFloat> _border = new Optional<RangeFloat>(new RangeFloat(new Vector2(.0f, 3f), 0f), false);
         [SerializeField]
-        private ScaleModeData       _scaleMode;
+        private ScaleModeData       _scaleMode = new ScaleModeData();
 		
         [SerializeField]
-        private Output              _output;
+        private Output              _output = new Output();
         [SerializeField]
         [Tooltip("Copy alpha channel from color texture to result, basically objects mask. May be useful for lighting combinations.")]
         private bool                _alpha;
@@ -82,7 +81,7 @@ namespace GiLight2D
 		
 		
         [SerializeField]
-        private ShaderCollection    _shaders;
+        private ShaderCollection    _shaders = new ShaderCollection();
 		
         private Pass                _pass;
         private CameraToOutputPass  _cameraToOutputPass;
@@ -261,7 +260,6 @@ namespace GiLight2D
                 }
 
                 // evaluate distance from uv coords
-                _owner._distMat.SetFloat(s_OffsetId, _owner._distOffset);
                 _blit(_jfa.From.Handle, _dist.Handle, _owner._distMat);
                 _jfa.Flip();
 				
@@ -582,17 +580,8 @@ namespace GiLight2D
 
             _validateShaders();
 			
-            _uvMat    = new Material(_shaders._uv);
-            _jfaMat   = new Material(_shaders._jfa);
-            _blitMat  = new Material(_shaders._blit);
-            _alphaMat = new Material(_shaders._alpha);
-            _distMat  = new Material(_shaders._dist);
-            _giMat    = new Material(_shaders._gi);
-            if (_falloff.enabled)
-                _giMat.EnableKeyword("FALLOFF_IMPACT");
-            if (_intensity.enabled)
-                _giMat.EnableKeyword("INTENSITY_IMPACT");
-			
+            _initMaterials();
+
             _setNoiseState(_noiseOptions._noiseMode);
 			
             if (k_ScreenMesh == null)
@@ -639,18 +628,28 @@ namespace GiLight2D
                 renderer.EnqueuePass(_cameraToOutputPass);
         }
 
-		
-        protected override void Dispose(bool disposing)
-        {
-            CoreUtils.Destroy(_uvMat);
-            CoreUtils.Destroy(_jfaMat);
-            CoreUtils.Destroy(_blitMat); 
-            CoreUtils.Destroy(_alphaMat); 
-            CoreUtils.Destroy(_giMat);
-            CoreUtils.Destroy(_distMat);
-        }
-
         // =======================================================================
+        private void _initMaterials()
+        {
+            _uvMat    = new Material(_shaders._uv);
+            _jfaMat   = new Material(_shaders._jfa);
+            _blitMat  = new Material(_shaders._blit);
+            _alphaMat = new Material(_shaders._alpha);
+            
+            _distMat  = new Material(_shaders._dist);
+            if (_distOffset.Enabled)
+            {
+                _distMat.EnableKeyword("ENABLE_OFFSET");
+                _distMat.SetFloat(s_OffsetId, _distOffset.Value.Value);
+            }
+                
+            _giMat    = new Material(_shaders._gi);
+            if (_falloff.enabled)
+                _giMat.EnableKeyword("FALLOFF_IMPACT");
+            if (_intensity.enabled)
+                _giMat.EnableKeyword("INTENSITY_IMPACT");
+        }
+        
         private void _validateShaders()
         {
 #if UNITY_EDITOR
@@ -663,7 +662,6 @@ namespace GiLight2D
             _validate(ref _shaders._dist,	k_DistShader);
 			
             UnityEditor.EditorUtility.SetDirty(this);
-#endif
             // -----------------------------------------------------------------------
             void _validate(ref Shader shader, string path)
             {
@@ -672,6 +670,7 @@ namespace GiLight2D
 				
                 shader = Shader.Find(path);
             }
+#endif
         }
 		
         private void _setupDesc(in RenderingData renderingData)
