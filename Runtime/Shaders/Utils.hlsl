@@ -24,6 +24,14 @@ fragIn vert_default(vertIn v)
 
 bool isOutlinePixel(in const sampler2D tex, in const float2 uv, in const float4 texel)
 {
+    /*if (tex2D(tex, uv).r == 0)
+        return false;
+    
+    return tex2D(tex, uv + float2(texel.x, 0)).r *
+        tex2D(tex, uv - float2(texel.x, 0)).r *
+        tex2D(tex, uv + float2(0, texel.y)).r *
+        tex2D(tex, uv - float2(0, texel.y)).r == 0;*/
+    
     return tex2D(tex, uv).r * 
         (tex2D(tex, uv + float2(texel.x, 0)).r +
         tex2D(tex, uv - float2(texel.x, 0)).r +

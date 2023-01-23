@@ -6,7 +6,7 @@ Shader "Hidden/GiLight2D/Gi"
         ZWrite Off
         ZTest Always
 
-        Pass
+        Pass    // 0
         {
             name "Gi"
 
@@ -113,7 +113,7 @@ Shader "Hidden/GiLight2D/Gi"
             ENDHLSL
         }
         
-        Pass
+        Pass    // 1
         {
             name "GiBounce"
 
@@ -223,6 +223,72 @@ Shader "Hidden/GiLight2D/Gi"
                 
 
                 return float4(result, 1);
+            }
+            ENDHLSL
+        }
+        
+        Pass    // 2
+        {
+            name "GiOverlay"
+            HLSLPROGRAM
+            
+            #include "Utils.hlsl"
+            
+            #pragma multi_compile_local INTENSITY_IMPACT _
+            
+            #pragma vertex vert_default
+            #pragma fragment frag
+
+            sampler2D _MainTex;
+            sampler2D _OverlayTex;
+            float     _Intensity;
+
+            // =======================================================================            
+            float4 frag(fragIn i) : SV_Target
+            {
+                const float4 overlay = tex2D(_OverlayTex, i.uv);
+
+                if (overlay.a == 1)
+                {
+#ifdef INTENSITY_IMPACT
+                    return overlay * _Intensity;
+#endif
+                    return overlay;
+                }
+
+                return tex2D(_MainTex, i.uv); 
+            }
+            ENDHLSL
+        }
+        
+        Pass    // 3
+        {
+            name "GiBlitContent"
+            HLSLPROGRAM
+            
+            #include "Utils.hlsl"
+            
+            #pragma multi_compile_local INTENSITY_IMPACT _
+            
+            #pragma vertex vert
+            #pragma fragment frag
+
+            sampler2D _MainTex;
+            float4    _Scale;
+
+            // =======================================================================
+            fragIn vert(vertIn v)
+            {
+                fragIn o;
+                o.vertex = v.vertex * _Scale;
+                o.uv = v.uv;
+
+                return o;
+            }
+            
+            float4 frag(fragIn i) : SV_Target
+            {
+                return tex2D(_MainTex, i.uv);
             }
             ENDHLSL
         }

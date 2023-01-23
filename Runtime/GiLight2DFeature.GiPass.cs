@@ -19,6 +19,7 @@ namespace GiLight2D
             private RenderTarget            _dist;
             private RenderTargetFlip        _bounce;
             private RenderTarget            _tmp;
+            private RenderTarget            _objects;
             private RenderTarget            _alpha;
             private RenderTargetFlip        _jfa;
             private RenderTargetPostProcess _pp;
@@ -31,6 +32,7 @@ namespace GiLight2D
                 renderPassEvent = _owner._event;
 				
                 _buffer = new RenderTarget().Allocate(nameof(_buffer));
+                _objects = new RenderTarget().Allocate(nameof(_objects));
                 _dist   = new RenderTarget().Allocate(nameof(_dist));
                 _bounce = new RenderTargetFlip(new RenderTarget().Allocate($"{nameof(_bounce)}_a"), new RenderTarget().Allocate($"{nameof(_bounce)}_b"));
                 _tmp    = new RenderTarget().Allocate(nameof(_tmp));
@@ -61,7 +63,7 @@ namespace GiLight2D
                     // set depth stencil format from rendering camera 
                     desc.depthStencilFormat = renderingData.cameraData.cameraTargetDescriptor.depthStencilFormat;
                     _buffer.Get(cmd, desc);
-                    desc.stencilFormat = GraphicsFormat.None;
+                    desc.depthStencilFormat = GraphicsFormat.None;
                 }
                 else
                 {
@@ -120,6 +122,13 @@ namespace GiLight2D
                     RenderingUtils.SetViewAndProjectionMatrices(cmd, cameraData.GetViewMatrix(), cameraData.GetGPUProjectionMatrix(), false);
                 }
 				
+                if (_owner.CleanEdges)
+                {
+                    desc.colorFormat = RenderTextureFormat.ARGB32;
+                    _objects.Get(cmd, in desc);
+                    _blit(_buffer.Handle, _objects.Handle, _owner._giMat, 3);
+                }
+                
                 // draw uv with alpha mask 
                 _blit(_buffer.Handle, _jfa.From.Handle, _owner._blitMat, 3);
 				
@@ -232,6 +241,13 @@ namespace GiLight2D
                 };
                 
                 _pp.Setup(cmd, in desc, output, passes, _owner._giMat);
+                
+                if (_owner.CleanEdges)
+                {
+                    cmd.SetGlobalTexture("_OverlayTex", _objects.Handle.nameID);
+                    _pp.Apply(cmd, _owner._giMat, 2);
+                }
+                
                 if (_owner._blurOptions._enable)
                 {
                     var step = _owner._blurOptions._step.Enabled ?
@@ -273,9 +289,12 @@ namespace GiLight2D
                 int _postProcessCount()
                 {
                     var count = 0;
-                    if (_owner._blurOptions._enable)
+                    if (_owner.CleanEdges)
                         count ++;
                     
+                    if (_owner._blurOptions._enable)
+                        count ++;
+
                     return count;
                 }
                 
@@ -289,6 +308,7 @@ namespace GiLight2D
             public override void FrameCleanup(CommandBuffer cmd)
             {
                 _buffer.Release(cmd);
+                _objects.Release(cmd);
                 _dist.Release(cmd);
                 _jfa.Release(cmd);
                 _pp.Release(cmd);

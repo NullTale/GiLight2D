@@ -105,6 +105,7 @@ namespace GiLight2D
 
         private bool ForceTextureOutput => _output._finalBlit == FinalBlit.Texture;
         private bool HasGiBorder        => _border.Enabled && _border.Value.Value > 0f;
+        private bool CleanEdges         => _traceOptions._enable && _traceOptions._cleanEdges && _traceOptions._bounces > 0;
         //private bool HasAlphaTexture    => _traceOptions._bounces > 0 || _solidTexture.Enabled;
 		
         public int   Samples   { get => _rays;               set => _rays = value; }
@@ -221,11 +222,11 @@ namespace GiLight2D
         
         public class RenderTargetPostProcess
         {
-            RenderTargetFlip _flip;
-            private RTHandle _result;
-            private Material _giMat;
-            private int      _passes;
-            private int      _passesLeft;
+            private RenderTargetFlip _flip;
+            private RTHandle         _result;
+            private Material         _giMat;
+            private int              _passes;
+            private int              _passesLeft;
 			
             // =======================================================================
             public RenderTargetPostProcess(RenderTarget a, RenderTarget b)
@@ -256,7 +257,7 @@ namespace GiLight2D
                 }
             }
 
-            public void Apply(CommandBuffer cmd, Material mat)
+            public void Apply(CommandBuffer cmd, Material mat, int pass = 0)
             {
                 // draw in output or tmp render target
                 _flip.Flip();
@@ -264,8 +265,7 @@ namespace GiLight2D
                 
                 cmd.SetGlobalTexture(s_MainTexId, _flip.From.Handle.nameID);
                 cmd.SetRenderTarget(_passesLeft > 0 ? _flip.To.Handle.nameID : _result.nameID);
-                cmd.DrawMesh(k_ScreenMesh, Matrix4x4.identity, mat, 0, 0);
-                
+                cmd.DrawMesh(k_ScreenMesh, Matrix4x4.identity, mat, 0, pass);
             }
             
             public void Release(CommandBuffer cmd)
@@ -281,9 +281,9 @@ namespace GiLight2D
         public class BlurOptions
         {
             public bool     _enable;
-            public BlurMode _mode = BlurMode.Horizontal;
+            public BlurMode _mode = BlurMode.Cross;
             [Tooltip("If disabled step will be set to one pixel")]
-            public Optional<RangeFloat> _step = new Optional<RangeFloat>(new RangeFloat(new Vector2(1f / 4096f, 0.01f), 0.003f), true);
+            public Optional<RangeFloat> _step = new Optional<RangeFloat>(new RangeFloat(new Vector2(0f, 0.01f), 0.003f), true);
         }
         
         [Serializable]
@@ -317,9 +317,11 @@ namespace GiLight2D
         public class TraceOptions
         {
             public bool  _enable = true;
+            [Tooltip("Override edges with initial color")]
+            public bool  _cleanEdges;
             [Range(0, 3)]
             public int   _bounces = 1;
-            public float _intencity = 3f;
+            public float _intencity = 1f;
         }
 
         [Serializable]
