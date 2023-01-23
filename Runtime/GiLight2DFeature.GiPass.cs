@@ -15,11 +15,14 @@ namespace GiLight2D
             
             private FilteringSettings       _filtering;
             private RenderStateBlock        _override;
-            private RanderTarget            _buffer;
-            private RanderTarget            _dist;
+            private RenderTarget            _buffer;
+            private RenderTarget            _dist;
+            private RenderTargetFlip        _bounce;
+            private RenderTarget            _tmp;
+            private RenderTarget            _alpha;
             private RenderTargetFlip        _jfa;
             private RenderTargetPostProcess _pp;
-            private RanderTarget            _output;
+            private RenderTarget            _output;
             private RTHandle                _cameraOutput;
 			
             // =======================================================================
@@ -27,12 +30,14 @@ namespace GiLight2D
             {
                 renderPassEvent = _owner._event;
 				
-                _buffer = new RanderTarget().Allocate(nameof(_buffer));
-                _dist   = new RanderTarget().Allocate(nameof(_dist));
-                _jfa    = new RenderTargetFlip(new RanderTarget().Allocate($"{nameof(_jfa)}_a"), new RanderTarget().Allocate($"{nameof(_jfa)}_b"));
-                _pp     = new RenderTargetPostProcess(new RanderTarget().Allocate($"{nameof(_pp)}_a"), new RanderTarget().Allocate($"{nameof(_pp)}_b"));
-                if (_owner.ForceTextureOutput)
-                    _output = new RanderTarget().Allocate(_owner._output._outputGlobalTexture);
+                _buffer = new RenderTarget().Allocate(nameof(_buffer));
+                _dist   = new RenderTarget().Allocate(nameof(_dist));
+                _bounce = new RenderTargetFlip(new RenderTarget().Allocate($"{nameof(_bounce)}_a"), new RenderTarget().Allocate($"{nameof(_bounce)}_b"));
+                _tmp    = new RenderTarget().Allocate(nameof(_tmp));
+                _alpha  = new RenderTarget().Allocate(nameof(_alpha));
+                _jfa    = new RenderTargetFlip(new RenderTarget().Allocate($"{nameof(_jfa)}_a"), new RenderTarget().Allocate($"{nameof(_jfa)}_b"));
+                _pp     = new RenderTargetPostProcess(new RenderTarget().Allocate($"{nameof(_pp)}_a"), new RenderTarget().Allocate($"{nameof(_pp)}_b"));
+                _output = new RenderTarget().Allocate(_owner._output._outputGlobalTexture);
 				
                 _filtering = new FilteringSettings(RenderQueueRange.transparent, _owner._mask);
                 _override  = new RenderStateBlock(RenderStateMask.Nothing);
@@ -71,6 +76,7 @@ namespace GiLight2D
 				
                 desc.colorFormat = RenderTextureFormat.R16;
                 _dist.Get(cmd, desc);
+                
 
                 // render with layer mask
                 var cullResults = renderingData.cullResults;
@@ -115,7 +121,7 @@ namespace GiLight2D
                 }
 				
                 // draw uv with alpha mask 
-                _blit(_buffer.Handle, _jfa.From.Handle, _owner._uvMat);
+                _blit(_buffer.Handle, _jfa.From.Handle, _owner._blitMat, 3);
 				
                 // fluid fill uv coords
                 var steps    = Mathf.CeilToInt(Mathf.Log(res.x * res.y) / 2f) + 1;
@@ -139,7 +145,7 @@ namespace GiLight2D
                 cmd.SetGlobalTexture(s_ColorTexId, _buffer.Handle.nameID);
                 cmd.SetGlobalTexture(s_DistTexId, _dist.Handle.nameID);
                 _owner._giMat.SetVector(s_AspectId, new Vector4(res.x / (float)res.y, 1f));
-                _owner._giMat.SetFloat(s_SamplesId, _owner._samples);
+                _owner._giMat.SetFloat(s_SamplesId, _owner._rays);
                 if (_owner._falloff.Enabled)
                     _owner._giMat.SetFloat(s_FalloffId, _owner._falloff.Value.Value);
                 if (_owner._intensity.Enabled)
@@ -168,59 +174,87 @@ namespace GiLight2D
                         throw new ArgumentOutOfRangeException();
                 }
 
-                desc.colorFormat = RenderTextureFormat.ARGB32;
-                var passes = _postProcessCount(); 
-                switch (_owner._output._finalBlit)
+                // add ray bounces to the initial color texture
+                if (_owner._traceOptions._enable && _owner._traceOptions._bounces > 0)
                 {
-                    case FinalBlit.Texture:
+                    desc.colorFormat = RenderTextureFormat.R8;
+                    _alpha.Get(cmd, in desc);
+                    
+                    _blit(_buffer.Handle, _alpha.Handle, _owner._blitMat, 1);
+                    cmd.SetGlobalTexture(s_AlphaTexId, _alpha.Handle.nameID);
+                    
+                    desc.colorFormat = RenderTextureFormat.ARGB32;
+                    _tmp.Get(cmd, in desc);
+                    _bounce.Get(cmd, in desc);
+                    
+                    cmd.SetGlobalTexture(s_ATexId, _tmp.Handle.nameID);
+                    cmd.SetGlobalTexture(s_BTexId, _bounce.To.Handle.nameID);
+                    _owner._giMat.SetFloat(s_IntensityBounceId, _owner._traceOptions._intencity);
+
+                    // execute gi, only for outline pixels, then add them to the main color texture, repeat with ray bounce texture
+                    cmd.SetRenderTarget(_bounce.To.Handle.nameID);
+                    cmd.ClearRenderTarget(RTClearFlags.Color, Color.clear, 1f, 0);
+                    cmd.DrawMesh(k_ScreenMesh, Matrix4x4.identity, _owner._giMat, 0, 1);
+                    
+                    _blit(_buffer.Handle, _tmp.Handle, _owner._blitMat);
+                    
+                    cmd.SetRenderTarget(_buffer.Handle.nameID);
+                    cmd.DrawMesh(k_ScreenMesh, Matrix4x4.identity, _owner._blitMat, 0, 2);
+                    
+                    for (var n = 1; n < _owner._traceOptions._bounces; n++)
                     {
-                        _pp.Setup(cmd, in desc, _output.Handle, passes, _owner._giMat);
-                        if (_owner._blurOptions._enable)
-                        {
-                            _pp.Apply(cmd, _owner._blurMat);
-                        }
+                        _bounce.Flip();
                         
-                        if (_owner._alpha)
-                        {
-                            cmd.SetGlobalTexture(s_AlphaTexId, _buffer.Handle.nameID);
-                            _pp.Apply(cmd, _owner._alphaMat);
-                        }
-                    } break;
-					
-                    case FinalBlit.Camera:
-                    {
-                        // alpha channel will be added in copy pass (if required)
-                        _pp.Setup(cmd, in desc, _cameraOutput, passes - (_owner._alpha ? 1 : 0), _owner._giMat);
-                        if (_owner._blurOptions._enable)
-                        {
-                            _pp.Apply(cmd, _owner._blurMat);
-                        }
+                        cmd.SetRenderTarget(_bounce.To.Handle.nameID);
+                        cmd.ClearRenderTarget(RTClearFlags.Color, Color.clear, 1f, 0);
                         
-                    } break;
-					
-                    default:
-                        throw new ArgumentOutOfRangeException();
+                        cmd.SetGlobalTexture(s_ColorTexId, _bounce.From.Handle.nameID);
+                        cmd.DrawMesh(k_ScreenMesh, Matrix4x4.identity, _owner._giMat, 0, 1);
+                        
+                        _blit(_buffer.Handle, _tmp.Handle, _owner._blitMat);
+                        
+                        cmd.SetGlobalTexture(s_BTexId, _bounce.To.Handle.nameID);
+                        cmd.SetRenderTarget(_buffer.Handle.nameID);
+                        cmd.DrawMesh(k_ScreenMesh, Matrix4x4.identity, _owner._blitMat, 0, 2);   
+                    }
+                    
+                    cmd.SetGlobalTexture(s_ColorTexId, _buffer.Handle.nameID);
                 }
-				
+                
+                // apply post process
+                desc.colorFormat = RenderTextureFormat.ARGB32;
+                var passes = _postProcessCount();
+                var output = _owner._output._finalBlit switch
+                {
+                    FinalBlit.Texture => _output.Handle,
+                    FinalBlit.Camera  => _cameraOutput,
+                    _                 => throw new ArgumentOutOfRangeException()
+                };
+                
+                _pp.Setup(cmd, in desc, output, passes, _owner._giMat);
+                if (_owner._blurOptions._enable)
+                {
+                    var step = _owner._blurOptions._step.Enabled ?
+                        new Vector4(_owner._blurOptions._step.Value.Value, _owner._blurOptions._step.Value.Value, 0, 0) :
+                        new Vector4(1f / desc.width, 1f / desc.height, 0f, 0f);
+                    
+                    _owner._blurMat.SetVector(s_StepId, step);
+                    _pp.Apply(cmd, _owner._blurMat);
+                }
+
+                // output debug override
                 if (_owner._outputOverride != DebugOutput.None)
                 {
-                    var dest = _owner._output._finalBlit switch
-                    {
-                        FinalBlit.Texture => _output.Handle,
-                        FinalBlit.Camera  => _cameraOutput,
-                        _                 => throw new ArgumentOutOfRangeException()
-                    };
-					
                     switch (_owner._outputOverride)
                     {
                         case DebugOutput.Objects:
-                            _blit(_buffer.Handle, dest, _owner._blitMat);
+                            _blit(_buffer.Handle, output, _owner._blitMat);
                             break;
                         case DebugOutput.Flood:
-                            _blit(_jfa.To.Handle, dest, _owner._blitMat);
+                            _blit(_jfa.To.Handle, output, _owner._blitMat);
                             break;
                         case DebugOutput.Distance:
-                            _blit(_dist.Handle, dest, _owner._blitMat);
+                            _blit(_dist.Handle, output, _owner._blitMat);
                             break;
                         case DebugOutput.None:
                         default:
@@ -231,18 +265,15 @@ namespace GiLight2D
                 _execute();
 				
                 // -----------------------------------------------------------------------
-                void _blit(RTHandle from, RTHandle to, Material mat)
+                void _blit(RTHandle from, RTHandle to, Material mat, int pass = 0)
                 {
-                    GiLight2DFeature._blit(cmd, from, to, mat);
+                    GiLight2DFeature._blit(cmd, from, to, mat, pass);
                 }
 
                 int _postProcessCount()
                 {
                     var count = 0;
                     if (_owner._blurOptions._enable)
-                        count ++;
-                    
-                    if (_owner._alpha)
                         count ++;
                     
                     return count;
@@ -261,9 +292,8 @@ namespace GiLight2D
                 _dist.Release(cmd);
                 _jfa.Release(cmd);
                 _pp.Release(cmd);
-
-                if (_owner.ForceTextureOutput)
-                    _output.Release(cmd);
+                _output.Release(cmd);
+                _alpha.Release(cmd);
                 
 #if !UNITY_2022_1_OR_NEWER
                 RTHandles.Release(_cameraOutput);

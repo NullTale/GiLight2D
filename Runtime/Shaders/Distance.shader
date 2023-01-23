@@ -11,7 +11,9 @@ Shader "Hidden/GiLight2D/Distance"
             name "UVDistance"
 
             HLSLPROGRAM
-            #pragma vertex vert
+            #include "Utils.hlsl"
+            
+            #pragma vertex vert_default
             #pragma fragment frag
 
             sampler2D _MainTex;
@@ -19,27 +21,6 @@ Shader "Hidden/GiLight2D/Distance"
             float _Offset;
 
             // =======================================================================
-            struct vertIn
-            {
-                float4 vertex : POSITION;
-                float2 uv : TEXCOORD0;
-            };
-
-            struct fragIn
-            {
-                float4 vertex : SV_POSITION;
-                float2 uv : TEXCOORD0;
-            };
-
-            // =======================================================================
-            fragIn vert(const vertIn v)
-            {
-                fragIn o;
-                o.vertex = v.vertex;
-                o.uv = v.uv;
-                return o;
-            }
-
             float frag(const fragIn i) : SV_Target
             {
                 float4 sample = tex2D(_MainTex, i.uv);

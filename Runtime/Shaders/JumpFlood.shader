@@ -11,35 +11,15 @@ Shader "Hidden/GiLight2D/JumpFlood"
             name "JumpFlood"
 
             HLSLPROGRAM
-            #pragma vertex vert
+            #include "Utils.hlsl"
+            
+            #pragma vertex vert_default
             #pragma fragment frag
 
             sampler2D _MainTex;
             float2    _StepSize;
 
             // =======================================================================
-            struct vertIn
-            {
-                float4 vertex : POSITION;
-                float2 uv : TEXCOORD0;
-            };
-
-            struct fragIn
-            {
-                float4 vertex : SV_POSITION;
-                float2 uv : TEXCOORD0;
-            };
-
-            // =======================================================================
-            fragIn vert(const vertIn v)
-            {
-                fragIn o;
-                o.vertex = v.vertex;
-                o.uv = v.uv;
-
-                return o;
-            }
-
             float2 frag(const fragIn i) : SV_Target
             {
                 float min_dist = 1;
@@ -51,7 +31,7 @@ Shader "Hidden/GiLight2D/JumpFlood"
                     [unroll]
                     for (int x = -1; x <= 1; x ++)
                     {
-                        float2 peek = tex2D(_MainTex, i.uv - float2(x, y) * _StepSize.xy).xy;
+                        const float2 peek = tex2D(_MainTex, i.uv - float2(x, y) * _StepSize.xy).xy;
                         if (peek.x != 0. && peek.y != 0.)
                         {
                             const float dist = distance(peek, i.uv);

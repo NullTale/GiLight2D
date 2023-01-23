@@ -12,27 +12,29 @@ namespace GiLight2D
     public partial class GiLight2DFeature : ScriptableRendererFeature
     {
         private const string k_BlitShader  = "Hidden/GiLight2D/Blit";
-        private const string k_AlphaShader = "Hidden/GiLight2D/Alpha";
-        private const string k_UvShader    = "Hidden/GiLight2D/UV";
         private const string k_JfaShader   = "Hidden/GiLight2D/JumpFlood";
         private const string k_GiShader    = "Hidden/GiLight2D/Gi";
         private const string k_BlurShader  = "Hidden/GiLight2D/Blur";
         private const string k_DistShader  = "Hidden/GiLight2D/Distance";
 		
-        private static readonly int s_MainTexId     = Shader.PropertyToID("_MainTex");
-        private static readonly int s_NoiseOffsetId = Shader.PropertyToID("_NoiseOffset");
-        private static readonly int s_NoiseTexId    = Shader.PropertyToID("_NoiseTex");
-        private static readonly int s_UvScaleId     = Shader.PropertyToID("_UvScale");
-        private static readonly int s_FalloffId     = Shader.PropertyToID("_Falloff");
-        private static readonly int s_IntensityId   = Shader.PropertyToID("_Intensity");
-        private static readonly int s_SamplesId     = Shader.PropertyToID("_Samples");
-        private static readonly int s_OffsetId      = Shader.PropertyToID("_Offset");
-        private static readonly int s_ColorTexId    = Shader.PropertyToID("_ColorTex");
-        private static readonly int s_DistTexId     = Shader.PropertyToID("_DistTex");
-        private static readonly int s_AspectId      = Shader.PropertyToID("_Aspect");
-        private static readonly int s_StepSizeId    = Shader.PropertyToID("_StepSize");
-        private static readonly int s_ScaleId       = Shader.PropertyToID("_Scale");
-        private static readonly int s_AlphaTexId    = Shader.PropertyToID("_AlphaTex");
+        private static readonly int s_MainTexId         = Shader.PropertyToID("_MainTex");
+        private static readonly int s_NoiseOffsetId     = Shader.PropertyToID("_NoiseOffset");
+        private static readonly int s_NoiseTexId        = Shader.PropertyToID("_NoiseTex");
+        private static readonly int s_UvScaleId         = Shader.PropertyToID("_UvScale");
+        private static readonly int s_FalloffId         = Shader.PropertyToID("_Falloff");
+        private static readonly int s_IntensityId       = Shader.PropertyToID("_Intensity");
+        private static readonly int s_IntensityBounceId = Shader.PropertyToID("_IntensityBounce");
+        private static readonly int s_SamplesId         = Shader.PropertyToID("_Samples");
+        private static readonly int s_OffsetId          = Shader.PropertyToID("_Offset");
+        private static readonly int s_ColorTexId        = Shader.PropertyToID("_ColorTex");
+        private static readonly int s_DistTexId         = Shader.PropertyToID("_DistTex");
+        private static readonly int s_AspectId          = Shader.PropertyToID("_Aspect");
+        private static readonly int s_StepSizeId        = Shader.PropertyToID("_StepSize");
+        private static readonly int s_ScaleId           = Shader.PropertyToID("_Scale");
+        private static readonly int s_StepId            = Shader.PropertyToID("_Step");
+        private static readonly int s_AlphaTexId        = Shader.PropertyToID("_AlphaTex");
+        private static readonly int s_ATexId            = Shader.PropertyToID("_ATex");
+        private static readonly int s_BTexId            = Shader.PropertyToID("_BTex");
 		
         private static List<ShaderTagId> k_ShaderTags;
         private static Mesh              k_ScreenMesh;
@@ -44,35 +46,40 @@ namespace GiLight2D
         [Tooltip("Which objects should be rendered as Gi.")]
         private LayerMask           _mask = new LayerMask() { value = -1 };
         [SerializeField]
-        [Tooltip("Enable depth stencil buffer for Gi objects rendering.")]
+        [Tooltip("Enable depth stencil buffer for Gi objects rendering. Allows mask interaction and z culling.")]
         private bool                _depthStencil = true;
 		
         [Tooltip("How many rays to emit from each pixel.")]
         [SerializeField]
-        private int                 _samples = 100;
+        private int                 _rays = 100;
         [SerializeField]
-        [Tooltip("Distance map additional impact for raytracing.")]
-        private Optional<RangeFloat> _distOffset = new Optional<RangeFloat>(new RangeFloat(new Vector2(.0f, .07f), 0.007f), false);
+        public TraceOptions         _traceOptions = new TraceOptions();
         [SerializeField]
+        //[Tooltip("Light falloff, ")]
         private Optional<RangeFloat> _falloff = new Optional<RangeFloat>(new RangeFloat(new Vector2(.01f, 1f), 1f), false);
         [SerializeField]
+        [Tooltip("Final light intensity, basically color multiplier")]
         private Optional<RangeFloat> _intensity = new Optional<RangeFloat>(new RangeFloat(new Vector2(.0f, 3f), 1f), false);
+        [SerializeField]
+        [Tooltip("Distance map additional impact for raytracing.")]
+        private Optional<RangeFloat> _distOffset = new Optional<RangeFloat>(new RangeFloat(new Vector2(.0f, .1f), .0f), false);
         [SerializeField]
         private NoiseOptions        _noiseOptions = new NoiseOptions();
         private Vector2Int          _noiseResolution;
         [SerializeField]
-        [Tooltip("Orthographic additional camera space, to make objects visible outside the camera frame.")]
+        [Tooltip("Additional orthographic camera space, to make objects visible outside of the camera frame.")]
         private Optional<RangeFloat> _border = new Optional<RangeFloat>(new RangeFloat(new Vector2(.0f, 3f), 0f), false);
         [SerializeField]
         private ScaleModeData       _scaleMode = new ScaleModeData();
-        [SerializeField]
-        private BlurOptions         _blurOptions = new BlurOptions();
 		
         [SerializeField]
         private Output              _output = new Output();
+        //[SerializeField]
+        //[Tooltip("Texture with objects mask, can be useful for lights combination.")]
+        //private Optional<string>    _solidTexture = new Optional<string>("_GiSolidTex", false);
         [SerializeField]
-        [Tooltip("Copy alpha channel from color texture to result, basically objects mask. May be useful for lighting combinations.")]
-        private bool                _alpha;
+        private BlurOptions         _blurOptions = new BlurOptions();
+        [Header("Debug")]
         [SerializeField]
         [Tooltip("Override final output for debug purposes.")]
         private DebugOutput         _outputOverride = DebugOutput.None;
@@ -86,14 +93,11 @@ namespace GiLight2D
         private ShaderCollection    _shaders = new ShaderCollection();
 		
         private GiPass              _giPass;
-        private CameraAlphaPass     _cameraAlphaPass;
 		
-        private Material _uvMat;
-        private Material _jfaMat;
         private Material _blitMat;
-        private Material _giMat;
+        private Material _jfaMat;
         private Material _distMat;
-        private Material _alphaMat;
+        private Material _giMat;
         private Material _blurMat;
 		
         private RenderTextureDescriptor _rtDesc = new RenderTextureDescriptor(0, 0, GraphicsFormat.None, 0, 0);
@@ -101,8 +105,9 @@ namespace GiLight2D
 
         private bool ForceTextureOutput => _output._finalBlit == FinalBlit.Texture;
         private bool HasGiBorder        => _border.Enabled && _border.Value.Value > 0f;
+        //private bool HasAlphaTexture    => _traceOptions._bounces > 0 || _solidTexture.Enabled;
 		
-        public int   Samples   { get => _samples;               set => _samples = value; }
+        public int   Samples   { get => _rays;               set => _rays = value; }
         public float Falloff   { get => _falloff.Value.Value;   set => _falloff.Value.Value = value; }
         public float Intensity { get => _intensity.Value.Value; set => _intensity.Value.Value = value; }
         public float Scale     { get => _scaleMode._ratio;      set => _scaleMode._ratio = value; }
@@ -140,60 +145,15 @@ namespace GiLight2D
         }
 
         // =======================================================================
-        private class CameraAlphaPass : ScriptableRenderPass
-        {
-            public  GiLight2DFeature _owner;
-            private RanderTarget     _tmp;
-            private RanderTarget     _buffer;
-            private RTHandle         _cameraOutput;
-
-            // =======================================================================
-            public void Init()
-            {
-                renderPassEvent = RenderPassEvent.AfterRenderingPostProcessing;
-                _tmp            = new RanderTarget().Allocate(nameof(_tmp));
-                _buffer         = new RanderTarget().Allocate(nameof(_buffer));
-            }
-			
-            public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
-            {
-                var     cmd  = CommandBufferPool.Get(nameof(GiLight2DFeature));
-                ref var desc = ref _owner._rtDesc;
-#if UNITY_2022_1_OR_NEWER
-				_cameraOutput = renderingData.cameraData.renderer.cameraColorTargetHandle;
-#else
-                _cameraOutput = RTHandles.Alloc(renderingData.cameraData.renderer.cameraColorTarget);
-#endif
-				
-                // add alpha channel, after potential post processing wich set it to one
-                desc.colorFormat = renderingData.cameraData.cameraTargetDescriptor.colorFormat;
-                _tmp.Get(cmd, desc);
-
-                _blit(cmd, _cameraOutput, _tmp.Handle, _owner._blitMat);
-                cmd.SetGlobalTexture(s_AlphaTexId, _buffer.Handle.nameID);
-                _blit(cmd, _tmp.Handle, _cameraOutput, _owner._alphaMat);
-				
-                context.ExecuteCommandBuffer(cmd);
-                CommandBufferPool.Release(cmd);
-            }
-			
-            public override void FrameCleanup(CommandBuffer cmd)
-            {
-                _tmp.Release(cmd);
-                _buffer.Release(cmd);
-#if !UNITY_2022_1_OR_NEWER
-                RTHandles.Release(_cameraOutput);
-#endif
-            }
-        }
-		
-        public class RanderTarget
+        public class RenderTarget
         {
             public RTHandle Handle;
             public int      Id;
 			
+            private bool    _allocated;
+            
             // =======================================================================
-            public RanderTarget Allocate(RenderTexture rt, string name)
+            public RenderTarget Allocate(RenderTexture rt, string name)
             {
                 Handle = RTHandles.Alloc(rt, name);
                 Id     = Shader.PropertyToID(name);
@@ -201,7 +161,7 @@ namespace GiLight2D
                 return this;
             }
 			
-            public RanderTarget Allocate(string name)
+            public RenderTarget Allocate(string name)
             {
                 Handle = _alloc(name);
                 Id     = Shader.PropertyToID(name);
@@ -211,26 +171,31 @@ namespace GiLight2D
 			
             public void Get(CommandBuffer cmd, in RenderTextureDescriptor desc)
             {
+                _allocated = true;
                 cmd.GetTemporaryRT(Id, desc);
             }
 			
             public void Release(CommandBuffer cmd)
             {
+                if (_allocated == false)
+                    return;
+                
+                _allocated = false;
                 cmd.ReleaseTemporaryRT(Id);
             }
         }
 
         public class RenderTargetFlip
         {
-            public RanderTarget From => _isFlipped ? _a : _b;
-            public RanderTarget To   => _isFlipped ? _b : _a;
+            public RenderTarget From => _isFlipped ? _a : _b;
+            public RenderTarget To   => _isFlipped ? _b : _a;
 			
             private bool         _isFlipped;
-            private RanderTarget _a;
-            private RanderTarget _b;
+            private RenderTarget _a;
+            private RenderTarget _b;
 			
             // =======================================================================
-            public RenderTargetFlip(RanderTarget a, RanderTarget b)
+            public RenderTargetFlip(RenderTarget a, RenderTarget b)
             {
                 _a = a;
                 _b = b;
@@ -263,7 +228,7 @@ namespace GiLight2D
             private int      _passesLeft;
 			
             // =======================================================================
-            public RenderTargetPostProcess(RanderTarget a, RanderTarget b)
+            public RenderTargetPostProcess(RenderTarget a, RenderTarget b)
             {
                 _flip = new RenderTargetFlip(a, b);
             }
@@ -315,7 +280,10 @@ namespace GiLight2D
         [Serializable]
         public class BlurOptions
         {
-            public bool _enable;
+            public bool     _enable;
+            public BlurMode _mode = BlurMode.Horizontal;
+            [Tooltip("If disabled step will be set to one pixel")]
+            public Optional<RangeFloat> _step = new Optional<RangeFloat>(new RangeFloat(new Vector2(1f / 4096f, 0.01f), 0.003f), true);
         }
         
         [Serializable]
@@ -333,6 +301,8 @@ namespace GiLight2D
             public FinalBlit _finalBlit = FinalBlit.Camera;
             [Tooltip("Global name of output texture.")]
             public string _outputGlobalTexture = "_GiTex";
+            /*[Tooltip("Base objects texture with alpha mask")]
+            public Optional<string> _outputBufferTexture = new Optional<string>("_GiBufferTex", false);*/
         }
 		
         [Serializable]
@@ -342,13 +312,20 @@ namespace GiLight2D
             [Range(0.01f, 1f)]
             public float _noiseScale = 1f;
         }
+        
+        [Serializable]
+        public class TraceOptions
+        {
+            public bool  _enable = true;
+            [Range(0, 3)]
+            public int   _bounces = 1;
+            public float _intencity = 3f;
+        }
 
         [Serializable]
         public class ShaderCollection
         {
             public Shader _blit;
-            public Shader _alpha;
-            public Shader _uv;
             public Shader _jfa;
             public Shader _gi;
             public Shader _dist;
@@ -383,15 +360,20 @@ namespace GiLight2D
             Texture,
             Camera
         }
-		
+
+        public enum BlurMode
+        {
+            Horizontal,
+            Vertial,
+            Cross,
+            Box
+        }
+        
         // =======================================================================
         public override void Create()
         {
             _giPass = new GiPass() { _owner = this };
             _giPass.Init();
-			
-            _cameraAlphaPass = new CameraAlphaPass() { _owner = this };
-            _cameraAlphaPass.Init();
 
             _validateShaders();
 			
@@ -439,18 +421,32 @@ namespace GiLight2D
             _setupDesc(in renderingData);
 
             renderer.EnqueuePass(_giPass);
-            if (_alpha && _output._finalBlit == FinalBlit.Camera)
-                renderer.EnqueuePass(_cameraAlphaPass);
         }
 
         // =======================================================================
         private void _initMaterials()
         {
-            _uvMat    = new Material(_shaders._uv);
             _jfaMat   = new Material(_shaders._jfa);
             _blitMat  = new Material(_shaders._blit);
-            _alphaMat = new Material(_shaders._alpha);
+            
             _blurMat = new Material(_shaders._blur);
+            switch (_blurOptions._mode)
+            {
+                case BlurMode.Horizontal:
+                    _blurMat.EnableKeyword("HORIZONTAL");
+                    break;
+                case BlurMode.Vertial:
+                    _blurMat.EnableKeyword("VERTICAL");
+                    break;
+                case BlurMode.Cross:
+                    _blurMat.EnableKeyword("CROSS");
+                    break;
+                case BlurMode.Box:
+                    _blurMat.EnableKeyword("BOX");
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
             
             _distMat  = new Material(_shaders._dist);
             if (_distOffset.Enabled)
@@ -470,8 +466,6 @@ namespace GiLight2D
         {
 #if UNITY_EDITOR
             _validate(ref _shaders._blit,	k_BlitShader);
-            _validate(ref _shaders._alpha,	k_AlphaShader);
-            _validate(ref _shaders._uv,		k_UvShader);
             _validate(ref _shaders._jfa,	k_JfaShader);
             _validate(ref _shaders._gi,		k_GiShader);
             _validate(ref _shaders._blur,	k_BlurShader);
@@ -514,9 +508,17 @@ namespace GiLight2D
 			
             var ortho   = renderingData.cameraData.camera.orthographicSize;
             var uvScale = _border.Enabled ? (ortho + _border.Value.Value) / ortho : 1f;
+            
+            // increase resolution for border padding
+            if (_border.Enabled)
+            {
+                var scaleInc = uvScale - 1f;
+                _rtDesc.width  += Mathf.FloorToInt(_rtDesc.width * scaleInc);
+                _rtDesc.height += Mathf.FloorToInt(_rtDesc.height * scaleInc);;
+            }
 			
             _giMat.SetVector(s_ScaleId, new Vector4(uvScale, uvScale, 1f, 1f));
-            _alphaMat.SetFloat(s_UvScaleId, 1f / uvScale);
+            //_alphaMat.SetFloat(s_UvScaleId, 1f / uvScale);
         }
 		
         private void _initNoise()
@@ -624,11 +626,11 @@ namespace GiLight2D
             }
         }
 		
-        private static void _blit(CommandBuffer cmd, RTHandle from, RTHandle to, Material mat)
+        private static void _blit(CommandBuffer cmd, RTHandle from, RTHandle to, Material mat, int pass = 0)
         {
             cmd.SetGlobalTexture(s_MainTexId, from.nameID);
             cmd.SetRenderTarget(to.nameID);
-            cmd.DrawMesh(k_ScreenMesh, Matrix4x4.identity, mat, 0, 0);
+            cmd.DrawMesh(k_ScreenMesh, Matrix4x4.identity, mat, 0, pass);
         }
 
         private static RTHandle _alloc(string id)

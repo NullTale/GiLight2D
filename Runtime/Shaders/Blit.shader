@@ -6,43 +6,86 @@ Shader "Hidden/GiLight2D/Blit"
         ZWrite Off
         ZTest Always
 
-        Pass
+        Pass    // 0
         {
             name "Blit"
+            
             HLSLPROGRAM
-            #pragma vertex vert
+            #include "Utils.hlsl"
+            
+            #pragma vertex vert_default
             #pragma fragment frag
 
             sampler2D _MainTex;
 
             // =======================================================================
-            struct vertIn
-            {
-                float4 vertex : POSITION;
-                float2 uv : TEXCOORD0;
-            };
-
-            struct fragIn
-            {
-                float2 uv : TEXCOORD0;
-                float4 vertex : SV_POSITION;
-            };
-
-            // =======================================================================
-            fragIn vert(vertIn v)
-            {
-                fragIn o;
-                o.vertex = v.vertex;
-                o.uv = v.uv;
-                return o;
-            }
-
             float4 frag(fragIn i) : SV_Target
             {
                 return tex2D(_MainTex, i.uv);
             }
             ENDHLSL
         }
+        
+        Pass    // 1
+        {
+            name "Alpha"
+            
+            HLSLPROGRAM
+            #include "Utils.hlsl"
+            
+            #pragma vertex vert_default
+            #pragma fragment frag
 
+            sampler2D _MainTex;
+
+            // =======================================================================
+            float4 frag(fragIn i) : SV_Target
+            {
+                return tex2D(_MainTex, i.uv).a;
+            }
+            ENDHLSL
+        }
+        
+        Pass    // 2
+        {
+            name "Merge"
+            HLSLPROGRAM
+            
+            #include "Utils.hlsl"
+            
+            #pragma vertex vert_default
+            #pragma fragment frag
+
+            sampler2D _ATex;
+            sampler2D _BTex;
+
+            // =======================================================================
+            float4 frag(fragIn i) : SV_Target
+            {
+                return tex2D(_ATex, i.uv) + tex2D(_BTex, i.uv);
+            }
+            ENDHLSL
+        }
+        
+        Pass    // 3
+        {
+            name "UV"
+
+            HLSLPROGRAM
+            #include "Utils.hlsl"
+            
+            #pragma vertex vert_default
+            #pragma fragment frag
+
+            sampler2D _MainTex;
+
+            // =======================================================================
+            float4 frag(fragIn i) : SV_Target
+            {
+                float alpha = tex2D(_MainTex, i.uv).a;
+                return float4(i.uv, 0, alpha) * (1. - step(alpha, 0));
+            }
+            ENDHLSL
+        }
     }
 }

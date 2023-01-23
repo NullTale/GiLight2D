@@ -9,11 +9,17 @@ Shader "Hidden/GiLight2D/Blur"
         Pass
         {
             name "Blur"
+        	
             HLSLPROGRAM
-            #pragma vertex vert
+            #include "Utils.hlsl"
+            
+            #pragma vertex vert_default
             #pragma fragment frag
             
+            #pragma multi_compile_local HORIZONTAL VERTICAL CROSS BOX
+            
 			#define	BLUR_LENGTH 9
+			#define	BLUR_LENGTH_HALF ((BLUR_LENGTH - 1) / 2)
 			static const float	k_BlurWeights[BLUR_LENGTH] =
 			{
 				0.026995,
@@ -28,37 +34,13 @@ Shader "Hidden/GiLight2D/Blur"
 			};
 
             sampler2D _MainTex;
-			uniform float4 _MainTex_TexelSize;
+			float2    _Step;
 
             // =======================================================================
-            struct vertIn
+            float4 _sample(float2 uv, in const float2 step)
             {
-                float4 vertex : POSITION;
-                float2 uv : TEXCOORD0;
-            };
-
-            struct fragIn
-            {
-                float2 uv : TEXCOORD0;
-                float4 vertex : SV_POSITION;
-            };
-
-            // =======================================================================
-            fragIn vert(vertIn v)
-            {
-                fragIn o;
-                o.vertex = v.vertex;
-                o.uv = v.uv;
-                return o;
-            }
-
-            float4 frag(fragIn i) : SV_Target
-            {            	
 				float4 result = 0;
-				float2 uv = i.uv;
-            	
-				const float2 step = _MainTex_TexelSize;
-				uv -= ((BLUR_LENGTH - 1) / 2) * step;
+				uv -= BLUR_LENGTH_HALF * step;
             	
             	[unroll]
 				for (int n = 0; n < BLUR_LENGTH; n ++)
@@ -66,6 +48,37 @@ Shader "Hidden/GiLight2D/Blur"
 					result += tex2D(_MainTex, uv) * k_BlurWeights[n];
 					uv += step;
 				}
+            	
+            	return result;
+            }
+            
+            float4 frag(fragIn i) : SV_Target
+            {            	
+				float4 result = 0;
+
+            	//HORIZONTAL VERTICAL CROSS BOX
+#ifdef HORIZONTAL
+				result = _sample(i.uv, float2(_Step.x, 0));
+#endif
+#ifdef VERTICAL
+				result = _sample(i.uv, float2(0, _Step.y));
+#endif
+#ifdef CROSS
+				result = (_sample(i.uv, float2(_Step.x, 0)) + _sample(i.uv, float2(0, _Step.y))) * .5f;
+#endif
+#ifdef BOX
+				const float2 stepX = float2(_Step.x, 0);
+				const float2 stepY = float2(0, _Step.y);
+				float2 uv = i.uv - BLUR_LENGTH_HALF * stepX;
+            	
+            	[unroll]
+				for (int n = 0; n < BLUR_LENGTH; n ++)
+				{
+					result += _sample(uv, stepY) * k_BlurWeights[n];
+					uv += stepX;
+				}
+#endif            	
+            	
             	return result;
             }
             ENDHLSL

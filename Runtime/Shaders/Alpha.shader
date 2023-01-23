@@ -8,7 +8,7 @@ Shader "Hidden/GiLight2D/Alpha"
 
         Pass
         {
-            name "UV"
+            name "Alpha"
 
             HLSLPROGRAM
             #pragma vertex vert
