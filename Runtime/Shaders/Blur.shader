@@ -64,7 +64,7 @@ Shader "Hidden/GiLight2D/Blur"
 				result = _sample(i.uv, float2(0, _Step.y));
 #endif
 #ifdef CROSS
-				result = (_sample(i.uv, float2(_Step.x, 0)) + _sample(i.uv, float2(0, _Step.y))) * .5f;
+				result = (_sample(i.uv, _Step) + _sample(i.uv, float2(_Step.x, -_Step.y))) * .5f;
 #endif
 #ifdef BOX
 				const float2 stepX = float2(_Step.x, 0);
