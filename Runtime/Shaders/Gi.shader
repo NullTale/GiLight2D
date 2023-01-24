@@ -15,25 +15,24 @@ Shader "Hidden/GiLight2D/Gi"
             
             #pragma multi_compile_local FALLOFF_IMPACT _
             #pragma multi_compile_local INTENSITY_IMPACT _
+            #pragma multi_compile_local RAY_BOUNCES _
             #pragma multi_compile_local FRAGMENT_RANDOM TEXTURE_RANDOM _
 
             #pragma vertex vert
             #pragma fragment frag
 
             sampler2D _ColorTex;
+            sampler2D _BounceTex;
             sampler2D _DistTex;
             sampler2D _NoiseTex;
 
             float _Samples;
-            float2 _Aspect;
+            float4 _Aspect;
             float4 _Scale;
             float2 _NoiseOffset;
 
             float _Falloff;
             float _Intensity;
-
-            #define STEPS		16
-            #define AMBIENT		float3(0, 0, 0)
 
             // =======================================================================
             struct fragIn_gi
@@ -62,6 +61,40 @@ Shader "Hidden/GiLight2D/Gi"
             {
                 float2 uvPos = uv;
 
+#ifdef RAY_BOUNCES
+                const float4 col = tex2D(_ColorTex, uvPos).rgba;
+                if (col.a == 1)
+                {
+                    float3 result = col.rgb;
+#ifdef FALLOFF_IMPACT
+                    result *= (1 + distance(uv, uvPos)) / _Falloff;
+#endif
+                    return result;
+                }
+                
+                uvPos += dir * tex2D(_DistTex, uvPos).rr;
+                if (uvPos.x < 0 || uvPos.y < 0 || uvPos.x > 1 || uvPos.y > 1)
+                    return AMBIENT;
+                
+                [unroll]
+                for (int n = 1; n < STEPS; n++)
+                {
+                    const float4 col = tex2D(_ColorTex, uvPos).rgba;
+                    if (col.a == 1)
+                    {
+                        float3 result = col.rgb + tex2D(_BounceTex, uvPos).rgb;
+#ifdef FALLOFF_IMPACT
+                        result *= (1 + distance(uv, uvPos)) / _Falloff;
+#endif
+                        return result;
+                    }
+
+                    uvPos += dir * tex2D(_DistTex, uvPos).rr;
+                    if (uvPos.x < 0 || uvPos.y < 0 || uvPos.x > 1 || uvPos.y > 1)
+                        return AMBIENT;
+                }
+#else
+                
                 [unroll]
                 for (int n = 0; n < STEPS; n++)
                 {
@@ -69,19 +102,17 @@ Shader "Hidden/GiLight2D/Gi"
                     if (col.a == 1)
                     {
                         float3 result = col.rgb;
-
-                        #ifdef FALLOFF_IMPACT
+#ifdef FALLOFF_IMPACT
                         result *= (1 + distance(uv, uvPos)) / _Falloff;
-                        #endif
-
+#endif
                         return result;
                     }
 
-                    uvPos += dir * tex2D(_DistTex, uvPos).rr / _Aspect;
+                    uvPos += dir * tex2D(_DistTex, uvPos).rr;
                     if (uvPos.x < 0 || uvPos.y < 0 || uvPos.x > 1 || uvPos.y > 1)
                         return AMBIENT;
                 }
-
+#endif
                 return AMBIENT;
             }
 
@@ -100,7 +131,7 @@ Shader "Hidden/GiLight2D/Gi"
                 for (float f = 0.; f < _Samples; f++)
                 {
                     const float t = (f + rand) / _Samples * float(3.1415 * 2.);
-                    result += trace(i.uv, float2(cos(t), sin(t)));
+                    result += trace(i.uv, float2(cos(t), sin(t)) / _Aspect.xy);
                 }
 
 #ifdef INTENSITY_IMPACT
@@ -127,22 +158,20 @@ Shader "Hidden/GiLight2D/Gi"
             #pragma vertex vert
             #pragma fragment frag
 
-            sampler2D _ColorTex;
+            Texture2D _ColorTex;
             sampler2D _AlphaTex;
             sampler2D _DistTex;
             sampler2D _NoiseTex;
-
-			float4 _ColorTex_TexelSize;
+            
+            SamplerState linear_clamp_sampler;
+            
             float  _Samples;
-            float2 _Aspect;
+            float4 _Aspect;
             float2 _NoiseOffset;
 
             float _Falloff;
             float _Intensity;
             float _IntensityBounce;
-
-            #define STEPS		16
-            #define AMBIENT		float3(0, 0, 0)
 
             // =======================================================================
             struct fragIn_gi
@@ -169,27 +198,27 @@ Shader "Hidden/GiLight2D/Gi"
 
             float3 trace(in const float2 uv, in const float2 dir)
             {
-                float2 uvPos = uv + dir * _ColorTex_TexelSize.xy;
+                float2 uvPos = uv + dir * _Aspect.zw;
                 if (tex2D(_AlphaTex, uvPos).r == 1)
                     return AMBIENT;
 
                 [unroll]
-                for (int n = 0; n < STEPS; n++)
+                for (int n = 1; n < STEPS; n++)
                 {
+                    uvPos += dir * tex2D(_DistTex, uvPos).rr;
+                    if (uvPos.x < 0 || uvPos.y < 0 || uvPos.x > 1 || uvPos.y > 1)
+                        return AMBIENT;
+                    
                     if (tex2D(_AlphaTex, uvPos).r == 1)
                     {
-                        float3 result = tex2D(_ColorTex, uvPos).rgb;
+                        float3 result = _ColorTex.Sample(linear_clamp_sampler, uvPos).rgb;
 
-                        #ifdef FALLOFF_IMPACT
+#ifdef FALLOFF_IMPACT
                         result *= (1 + distance(uv, uvPos)) / _Falloff;
-                        #endif
+#endif
 
                         return result;
                     }
-
-                    uvPos += dir * tex2D(_DistTex, uvPos).r / _Aspect;
-                    if (uvPos.x < 0 || uvPos.y < 0 || uvPos.x > 1 || uvPos.y > 1)
-                        return AMBIENT;
                 }
 
                 return AMBIENT;
@@ -197,7 +226,8 @@ Shader "Hidden/GiLight2D/Gi"
             
             float4 frag(fragIn_gi i) : SV_Target
             {
-                if (isOutlinePixel(_AlphaTex, i.uv, _ColorTex_TexelSize) == false)
+                //if (isOutlinePixel(_AlphaTex, i.uv, _Aspect.zw) == false)
+                if (tex2D(_AlphaTex, i.uv).r == 0)
                     discard;
                 
                 float3 result = AMBIENT;
@@ -212,7 +242,7 @@ Shader "Hidden/GiLight2D/Gi"
                 for (float f = 0.; f < _Samples; f++)
                 {
                     const float t = (f + rand) / _Samples * float(3.1415 * 2.);
-                    result += trace(i.uv, float2(cos(t), sin(t)));
+                    result += trace(i.uv, float2(cos(t), sin(t)) / _Aspect.xy);
                 }
 
 #ifdef INTENSITY_IMPACT
@@ -239,7 +269,6 @@ Shader "Hidden/GiLight2D/Gi"
             #pragma vertex vert_default
             #pragma fragment frag
 
-            sampler2D _MainTex;
             sampler2D _OverlayTex;
             float     _Intensity;
 
@@ -248,15 +277,13 @@ Shader "Hidden/GiLight2D/Gi"
             {
                 const float4 overlay = tex2D(_OverlayTex, i.uv);
 
-                if (overlay.a == 1)
-                {
+                if (overlay.a != 1)
+                    discard;
+                
 #ifdef INTENSITY_IMPACT
-                    return overlay * _Intensity;
+                return overlay * _Intensity;
 #endif
-                    return overlay;
-                }
-
-                return tex2D(_MainTex, i.uv); 
+                return overlay; 
             }
             ENDHLSL
         }
@@ -267,8 +294,6 @@ Shader "Hidden/GiLight2D/Gi"
             HLSLPROGRAM
             
             #include "Utils.hlsl"
-            
-            #pragma multi_compile_local INTENSITY_IMPACT _
             
             #pragma vertex vert
             #pragma fragment frag

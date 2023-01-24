@@ -102,10 +102,10 @@ namespace GiLight2D
 		
         private RenderTextureDescriptor _rtDesc = new RenderTextureDescriptor(0, 0, GraphicsFormat.None, 0, 0);
         private Vector2Int              _rtRes  = Vector2Int.zero;
+        private Vector2Int              _rtBounceRes  = Vector2Int.zero;
 
         private bool ForceTextureOutput => _output._finalBlit == FinalBlit.Texture;
         private bool HasGiBorder        => _border.Enabled && _border.Value.Value > 0f;
-        private bool CleanEdges         => _traceOptions._enable && _traceOptions._cleanEdges && _traceOptions._bounces > 0;
         //private bool HasAlphaTexture    => _traceOptions._bounces > 0 || _solidTexture.Enabled;
 		
         public int   Samples   { get => _rays;               set => _rays = value; }
@@ -223,10 +223,12 @@ namespace GiLight2D
         public class RenderTargetPostProcess
         {
             private RenderTargetFlip _flip;
-            private RTHandle         _result;
+            private RTHandle         _output;
             private Material         _giMat;
             private int              _passes;
             private int              _passesLeft;
+            
+            public  RTHandle         GiTexture => _passesLeft == 0 ? _output : _flip.To.Handle;
 			
             // =======================================================================
             public RenderTargetPostProcess(RenderTarget a, RenderTarget b)
@@ -238,7 +240,7 @@ namespace GiLight2D
             {
                 _passes = passes;
                 _passesLeft = passes;
-                _result = output;
+                _output = output;
                 _giMat = giMat;
                 
                 if (passes > 0)
@@ -252,7 +254,7 @@ namespace GiLight2D
                 else
                 {
                     // no post process added, draw gi to the output
-                    cmd.SetRenderTarget(_result.nameID);
+                    cmd.SetRenderTarget(_output.nameID);
                     cmd.DrawMesh(k_ScreenMesh, Matrix4x4.identity, _giMat, 0, 0);
                 }
             }
@@ -264,7 +266,7 @@ namespace GiLight2D
                 _passesLeft --;
                 
                 cmd.SetGlobalTexture(s_MainTexId, _flip.From.Handle.nameID);
-                cmd.SetRenderTarget(_passesLeft > 0 ? _flip.To.Handle.nameID : _result.nameID);
+                cmd.SetRenderTarget(_passesLeft > 0 ? _flip.To.Handle.nameID : _output.nameID);
                 cmd.DrawMesh(k_ScreenMesh, Matrix4x4.identity, mat, 0, pass);
             }
             
@@ -317,11 +319,13 @@ namespace GiLight2D
         public class TraceOptions
         {
             public bool  _enable = true;
-            [Tooltip("Override edges with initial color")]
-            public bool  _cleanEdges;
-            [Range(0, 3)]
+            [Range(1, 3)]
             public int   _bounces = 1;
             public float _intencity = 1f;
+            [Range(0.001f, 1)]
+            public float _scale = 1f;
+            [Range(0, 1)]
+            public float _piercing = .5f;
         }
 
         [Serializable]
@@ -354,7 +358,8 @@ namespace GiLight2D
             None,
             Objects,
             Flood,
-            Distance
+            Distance,
+            Bounce
         }
 
         public enum FinalBlit
@@ -462,6 +467,8 @@ namespace GiLight2D
                 _giMat.EnableKeyword("FALLOFF_IMPACT");
             if (_intensity.enabled)
                 _giMat.EnableKeyword("INTENSITY_IMPACT");
+            if (_traceOptions._enable)
+                _giMat.EnableKeyword("RAY_BOUNCES");
         }
         
         private void _validateShaders()
@@ -507,6 +514,9 @@ namespace GiLight2D
 			
             _rtDesc.width  = _rtRes.x;
             _rtDesc.height = _rtRes.y;
+            
+            _rtBounceRes.x = Mathf.CeilToInt(_rtRes.x * _traceOptions._scale);
+            _rtBounceRes.y = Mathf.CeilToInt(_rtRes.y * _traceOptions._scale);
 			
             var ortho   = renderingData.cameraData.camera.orthographicSize;
             var uvScale = _border.Enabled ? (ortho + _border.Value.Value) / ortho : 1f;
@@ -528,9 +538,14 @@ namespace GiLight2D
             // try block to fix editor startup error
             try
             {
-                var width  = Mathf.CeilToInt(Screen.width * _noiseOptions._noiseScale);
-                var height = Mathf.CeilToInt(Screen.height * _noiseOptions._noiseScale);
-				
+                var width  = Mathf.CeilToInt(_rtRes.x * _noiseOptions._noiseScale);
+                var height = Mathf.CeilToInt(_rtRes.y * _noiseOptions._noiseScale);
+                
+                if (width > 4)
+                    width  -= width % 4;
+                if (height > 4)
+                    height -= height % 4;
+                
                 if (k_Noise != null && width == k_Noise.width && height == k_Noise.height)
                     return;
 				
@@ -539,6 +554,7 @@ namespace GiLight2D
 				
                 k_Noise = new Texture2D(width, height, GraphicsFormat.R8_UNorm, 0);
                 //k_Noise          = new Texture2D(width, height, GraphicsFormat.R8G8B8A8_UNorm);
+                k_Noise.name       = nameof(k_Noise);
                 k_Noise.wrapMode   = TextureWrapMode.Repeat;
                 k_Noise.filterMode = FilterMode.Bilinear;
 
@@ -548,6 +564,9 @@ namespace GiLight2D
                     data[n] = (byte)(Random.Range(byte.MinValue, byte.MaxValue));
 
                 k_Noise.SetPixelData(data, 0);
+                
+                if (width % 4 == 0 && height % 4 == 0)
+                    k_Noise.Compress(true);
                 k_Noise.Apply(false, true);
             }
             catch

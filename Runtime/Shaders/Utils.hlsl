@@ -1,6 +1,10 @@
 #ifndef GI_LIGHT_2D_INCLUDED
 #define GI_LIGHT_2D_INCLUDED
 
+
+#define AMBIENT		float3(0, 0, 0)
+#define STEPS		16
+
 struct vertIn
 {
     float4 vertex : POSITION;
@@ -22,7 +26,7 @@ fragIn vert_default(vertIn v)
     return o;
 }
 
-bool isOutlinePixel(in const sampler2D tex, in const float2 uv, in const float4 texel)
+bool isOutlinePixel(in const sampler2D tex, in const float2 uv, in const float2 texel)
 {
     /*if (tex2D(tex, uv).r == 0)
         return false;

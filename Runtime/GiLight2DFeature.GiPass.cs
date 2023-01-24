@@ -18,8 +18,8 @@ namespace GiLight2D
             private RenderTarget            _buffer;
             private RenderTarget            _dist;
             private RenderTargetFlip        _bounce;
-            private RenderTarget            _tmp;
-            private RenderTarget            _objects;
+            private RenderTarget            _bounceResult;
+            private RenderTarget            _bounceTmp;
             private RenderTarget            _alpha;
             private RenderTargetFlip        _jfa;
             private RenderTargetPostProcess _pp;
@@ -32,10 +32,10 @@ namespace GiLight2D
                 renderPassEvent = _owner._event;
 				
                 _buffer = new RenderTarget().Allocate(nameof(_buffer));
-                _objects = new RenderTarget().Allocate(nameof(_objects));
+                _bounceResult = new RenderTarget().Allocate(nameof(_bounceResult));
                 _dist   = new RenderTarget().Allocate(nameof(_dist));
                 _bounce = new RenderTargetFlip(new RenderTarget().Allocate($"{nameof(_bounce)}_a"), new RenderTarget().Allocate($"{nameof(_bounce)}_b"));
-                _tmp    = new RenderTarget().Allocate(nameof(_tmp));
+                _bounceTmp    = new RenderTarget().Allocate(nameof(_bounceTmp));
                 _alpha  = new RenderTarget().Allocate(nameof(_alpha));
                 _jfa    = new RenderTargetFlip(new RenderTarget().Allocate($"{nameof(_jfa)}_a"), new RenderTarget().Allocate($"{nameof(_jfa)}_b"));
                 _pp     = new RenderTargetPostProcess(new RenderTarget().Allocate($"{nameof(_pp)}_a"), new RenderTarget().Allocate($"{nameof(_pp)}_b"));
@@ -49,6 +49,7 @@ namespace GiLight2D
             {
                 // allocate resources
                 ref var res  = ref _owner._rtRes;
+                ref var bounceRes  = ref _owner._rtBounceRes;
                 ref var desc = ref _owner._rtDesc;
                 var     cmd  = CommandBufferPool.Get(nameof(GiLight2DFeature));
 #if UNITY_2021
@@ -56,6 +57,16 @@ namespace GiLight2D
 #else
 				_cameraOutput = renderingData.cameraData.renderer.cameraColorTargetHandle;
 #endif
+                
+                var aspectRatio = (res.x / (float)res.y);
+                var piercing = Mathf.Lerp(0f, 6f,_owner._traceOptions._piercing) / (800f / Mathf.Max(bounceRes.x, bounceRes.y));
+                _owner._giMat.SetVector(s_AspectId, new Vector4(aspectRatio, 1f, piercing * aspectRatio / bounceRes.x, piercing / bounceRes.y));
+                _owner._giMat.SetFloat(s_SamplesId, _owner._rays);
+                if (_owner._falloff.Enabled)
+                    _owner._giMat.SetFloat(s_FalloffId, _owner._falloff.Value.Value);
+                if (_owner._intensity.Enabled)
+                    _owner._giMat.SetFloat(s_IntensityId, _owner._intensity.Value.Value);
+                
                 // allocate render textures
                 desc.colorFormat = RenderTextureFormat.ARGB32;
                 if (_owner._depthStencil)
@@ -122,12 +133,6 @@ namespace GiLight2D
                     RenderingUtils.SetViewAndProjectionMatrices(cmd, cameraData.GetViewMatrix(), cameraData.GetGPUProjectionMatrix(), false);
                 }
 				
-                if (_owner.CleanEdges)
-                {
-                    desc.colorFormat = RenderTextureFormat.ARGB32;
-                    _objects.Get(cmd, in desc);
-                    _blit(_buffer.Handle, _objects.Handle, _owner._giMat, 3);
-                }
                 
                 // draw uv with alpha mask 
                 _blit(_buffer.Handle, _jfa.From.Handle, _owner._blitMat, 3);
@@ -153,12 +158,6 @@ namespace GiLight2D
                 // apply raytracer, final blit
                 cmd.SetGlobalTexture(s_ColorTexId, _buffer.Handle.nameID);
                 cmd.SetGlobalTexture(s_DistTexId, _dist.Handle.nameID);
-                _owner._giMat.SetVector(s_AspectId, new Vector4(res.x / (float)res.y, 1f));
-                _owner._giMat.SetFloat(s_SamplesId, _owner._rays);
-                if (_owner._falloff.Enabled)
-                    _owner._giMat.SetFloat(s_FalloffId, _owner._falloff.Value.Value);
-                if (_owner._intensity.Enabled)
-                    _owner._giMat.SetFloat(s_IntensityId, _owner._intensity.Value.Value);
 				
                 switch (_owner._noiseOptions._noiseMode)
                 {
@@ -184,8 +183,12 @@ namespace GiLight2D
                 }
 
                 // add ray bounces to the initial color texture
-                if (_owner._traceOptions._enable && _owner._traceOptions._bounces > 0)
+                if (_owner._traceOptions._enable)
                 {
+                    desc.width = bounceRes.x;
+                    desc.height = bounceRes.y;
+                    
+                    // blit object mask (possibly can use stencil buffer instead)
                     desc.colorFormat = RenderTextureFormat.R8;
                     _alpha.Get(cmd, in desc);
                     
@@ -193,11 +196,14 @@ namespace GiLight2D
                     cmd.SetGlobalTexture(s_AlphaTexId, _alpha.Handle.nameID);
                     
                     desc.colorFormat = RenderTextureFormat.ARGB32;
-                    _tmp.Get(cmd, in desc);
+                    _bounceTmp.Get(cmd, in desc);
                     _bounce.Get(cmd, in desc);
+                    _bounceResult.Get(cmd, in desc);
+                        
+                    desc.width  = res.x;
+                    desc.height = res.y;
                     
-                    cmd.SetGlobalTexture(s_ATexId, _tmp.Handle.nameID);
-                    cmd.SetGlobalTexture(s_BTexId, _bounce.To.Handle.nameID);
+                    cmd.SetGlobalTexture(s_ATexId, _bounceTmp.Handle.nameID);
                     _owner._giMat.SetFloat(s_IntensityBounceId, _owner._traceOptions._intencity);
 
                     // execute gi, only for outline pixels, then add them to the main color texture, repeat with ray bounce texture
@@ -205,10 +211,10 @@ namespace GiLight2D
                     cmd.ClearRenderTarget(RTClearFlags.Color, Color.clear, 1f, 0);
                     cmd.DrawMesh(k_ScreenMesh, Matrix4x4.identity, _owner._giMat, 0, 1);
                     
-                    _blit(_buffer.Handle, _tmp.Handle, _owner._blitMat);
-                    
-                    cmd.SetRenderTarget(_buffer.Handle.nameID);
-                    cmd.DrawMesh(k_ScreenMesh, Matrix4x4.identity, _owner._blitMat, 0, 2);
+                    cmd.SetRenderTarget(_bounceResult.Handle.nameID);
+                    cmd.ClearRenderTarget(RTClearFlags.Color, Color.clear, 1f, 0);
+                    cmd.SetGlobalTexture(s_MainTexId, _bounce.To.Handle.nameID);
+                    cmd.DrawMesh(k_ScreenMesh, Matrix4x4.identity, _owner._blitMat, 0, 0);
                     
                     for (var n = 1; n < _owner._traceOptions._bounces; n++)
                     {
@@ -220,17 +226,18 @@ namespace GiLight2D
                         cmd.SetGlobalTexture(s_ColorTexId, _bounce.From.Handle.nameID);
                         cmd.DrawMesh(k_ScreenMesh, Matrix4x4.identity, _owner._giMat, 0, 1);
                         
-                        _blit(_buffer.Handle, _tmp.Handle, _owner._blitMat);
+                        _blit(_bounceResult.Handle, _bounceTmp.Handle, _owner._blitMat);
                         
                         cmd.SetGlobalTexture(s_BTexId, _bounce.To.Handle.nameID);
-                        cmd.SetRenderTarget(_buffer.Handle.nameID);
+                        cmd.SetRenderTarget(_bounceResult.Handle.nameID);
                         cmd.DrawMesh(k_ScreenMesh, Matrix4x4.identity, _owner._blitMat, 0, 2);   
                     }
                     
                     cmd.SetGlobalTexture(s_ColorTexId, _buffer.Handle.nameID);
+                    cmd.SetGlobalTexture("_BounceTex", _bounceResult.Handle.nameID);
                 }
-                
-                // apply post process
+
+                // draw gi & apply post process
                 desc.colorFormat = RenderTextureFormat.ARGB32;
                 var passes = _postProcessCount();
                 var output = _owner._output._finalBlit switch
@@ -241,12 +248,6 @@ namespace GiLight2D
                 };
                 
                 _pp.Setup(cmd, in desc, output, passes, _owner._giMat);
-                
-                if (_owner.CleanEdges)
-                {
-                    cmd.SetGlobalTexture("_OverlayTex", _objects.Handle.nameID);
-                    _pp.Apply(cmd, _owner._giMat, 2);
-                }
                 
                 if (_owner._blurOptions._enable)
                 {
@@ -272,6 +273,9 @@ namespace GiLight2D
                         case DebugOutput.Distance:
                             _blit(_dist.Handle, output, _owner._blitMat);
                             break;
+                        case DebugOutput.Bounce:
+                            _blit(_bounceResult.Handle, output, _owner._blitMat);
+                            break;
                         case DebugOutput.None:
                         default:
                             throw new ArgumentOutOfRangeException();
@@ -289,8 +293,6 @@ namespace GiLight2D
                 int _postProcessCount()
                 {
                     var count = 0;
-                    if (_owner.CleanEdges)
-                        count ++;
                     
                     if (_owner._blurOptions._enable)
                         count ++;
@@ -308,7 +310,7 @@ namespace GiLight2D
             public override void FrameCleanup(CommandBuffer cmd)
             {
                 _buffer.Release(cmd);
-                _objects.Release(cmd);
+                _bounceResult.Release(cmd);
                 _dist.Release(cmd);
                 _jfa.Release(cmd);
                 _pp.Release(cmd);
