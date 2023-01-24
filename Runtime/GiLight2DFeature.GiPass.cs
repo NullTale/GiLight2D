@@ -204,7 +204,7 @@ namespace GiLight2D
                     desc.height = res.y;
                     
                     cmd.SetGlobalTexture(s_ATexId, _bounceTmp.Handle.nameID);
-                    _owner._giMat.SetFloat(s_IntensityBounceId, _owner._traceOptions._intencity);
+                    cmd.SetGlobalFloat(s_IntensityBounceId, _owner._traceOptions._intencity * _owner._traceOptions._scales[0]);
 
                     // execute gi, only for outline pixels, then add them to the main color texture, repeat with ray bounce texture
                     cmd.SetRenderTarget(_bounce.To.Handle.nameID);
@@ -219,6 +219,8 @@ namespace GiLight2D
                     for (var n = 1; n < _owner._traceOptions._bounces; n++)
                     {
                         _bounce.Flip();
+                        
+                        cmd.SetGlobalFloat(s_IntensityBounceId, _owner._traceOptions._intencity * _owner._traceOptions._scales[n]);
                         
                         cmd.SetRenderTarget(_bounce.To.Handle.nameID);
                         cmd.ClearRenderTarget(RTClearFlags.Color, Color.clear, 1f, 0);

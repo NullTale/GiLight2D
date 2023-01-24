@@ -319,13 +319,19 @@ namespace GiLight2D
         public class TraceOptions
         {
             public bool  _enable = true;
-            [Range(1, 3)]
-            public int   _bounces = 1;
-            public float _intencity = 1f;
+            [Tooltip("Bounce texture scale")]
             [Range(0.001f, 1)]
             public float _scale = 1f;
+            [Tooltip("Bounce ray piecing")]
             [Range(0, 1)]
             public float _piercing = .5f;
+            [Range(1, 3)]
+            public int   _bounces = 1;
+            [Range(0, 33)]
+            [Tooltip("Scale of bounce light")]
+            public float _intencity = 1;
+            [Range(0, 1)]
+            public float[] _scales = new float[3] { 1f, 1f, 1f };
         }
 
         [Serializable]
