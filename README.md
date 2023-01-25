@@ -17,7 +17,8 @@ Implemented quite enough options, tested with unity 2021 and 2022 versions.<br>
 
 
 ## Installation and use
-Install via PackageManager `https://github.com/NullTale/GiLight2D.git`. <br>
+Install via PackageManager `https://github.com/NullTale/GiLight2D.git`.
+
 <img src="https://user-images.githubusercontent.com/1497430/213906801-7cab3334-5626-46b8-9966-d5c0b6107edc.png">
 
 Add `GiLight2DFeature` to the Urp Renderer (urp must be configured).<br>
