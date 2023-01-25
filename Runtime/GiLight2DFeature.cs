@@ -70,7 +70,7 @@ namespace GiLight2D
         [Tooltip("Additional orthographic camera space, to make objects visible outside of the camera frame.")]
         private Optional<RangeFloat> _border = new Optional<RangeFloat>(new RangeFloat(new Vector2(.0f, 3f), 0f), false);
         [SerializeField]
-        private ScaleModeData       _scaleMode = new ScaleModeData();
+        private ScaleModeOptions       _scaleMode = new ScaleModeOptions();
 		
         [SerializeField]
         private Output              _output = new Output();
@@ -283,16 +283,20 @@ namespace GiLight2D
         public class BlurOptions
         {
             public bool     _enable;
+            [Tooltip("Blur type")]
             public BlurMode _mode = BlurMode.Cross;
-            [Tooltip("If disabled step will be set to one pixel")]
+            [Tooltip("Blur distance in uv coords, if disabled step will be set to one pixel per sample")]
             public Optional<RangeFloat> _step = new Optional<RangeFloat>(new RangeFloat(new Vector2(0f, 0.01f), 0.003f), true);
         }
         
         [Serializable]
-        public class ScaleModeData
+        public class ScaleModeOptions
         {
             public ScaleMode _scaleMode;
+            [Tooltip("Texture scale")]
+            [Range(0.1f, 2f)]
             public float     _ratio  = 1f;
+            [Tooltip("Fixed height of render target, width will be set relative to the aspect")]
             public int       _height = 240;
         }
 
@@ -325,11 +329,12 @@ namespace GiLight2D
             [Tooltip("Bounce ray piecing")]
             [Range(0, 1)]
             public float _piercing = .5f;
+            [Tooltip("Number of bounces")]
             [Range(1, 3)]
             public int   _bounces = 1;
-            [Range(0, 33)]
             [Tooltip("Scale of bounce light")]
             public float _intencity = 1;
+            [Tooltip("Bounce scales")]
             [Range(0, 1)]
             public float[] _scales = new float[3] { 1f, 1f, 1f };
         }
@@ -536,7 +541,6 @@ namespace GiLight2D
             }
 			
             _giMat.SetVector(s_ScaleId, new Vector4(uvScale, uvScale, 1f, 1f));
-            //_alphaMat.SetFloat(s_UvScaleId, 1f / uvScale);
         }
 		
         private void _initNoise()
