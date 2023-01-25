@@ -1,10 +1,10 @@
 # GiLight2D
 
-## Что это
+Unity Urp Render Feature for 2D Global Illumination.
 ![Demo](https://user-images.githubusercontent.com/1497430/214528293-1d6d2dbd-0a54-4816-ab32-c08d22e981f5.gif)
 
-Unity Urp Render Feature for 2D Global Illumination.<br>
-In practice, this is an approach to lighting in which glow and shadows are created naturally, and the number of light sources is not limited..<br>
+## What is it
+In practice, this is an approach to lighting with rays, in which glow and shadows are created naturally, and the number of light sources is not limited.<br>
 Implemented quite enough options, tested with unity 2021 and 2022 versions.<br>
 
 #### Some of the options
@@ -35,10 +35,13 @@ Now the texture can be used from the shader.<br>
 <sup>The sprite of the square uses the Gi texture from the screen coordinates (the `Exposed` checkbox must be unchecked).</sup>
 
 ## How it works
-The general idea is that from each pixel rays are released in all directions, from the sum of the rays that hit the light source is the final color of the pixel.<Br> In the end a lighting texture should be calculated which can then be used.<Br> With this approach glow and shadow are formed naturally. 
+The general idea is that from each pixel rays are released in all directions, from the sum of the rays that hit the light source is the final color of the pixel.<Br> In the end a lighting texture should be calculated which can then be used.<Br> With this approach glow and shadow are formed naturally.
+![Rays](https://user-images.githubusercontent.com/1497430/214540599-eb907420-0655-4029-b54e-3484a69e4b31.gif)
+
 
 In order to effectively calculate the rays a sdf map is created, in fact it is a distance map to the nearest light source, it is used to get the offset distance of the ray when searching for the light source.
 So the whole rendering process consists of three steps: rendering objects into buffer, creating a distance map using jfa algorithm, applying gi shader.
 Ray bounces are counted by calculating the illumination for the pixels on the border of the objects.
+![Pipeline](https://user-images.githubusercontent.com/1497430/214540624-e9e66d99-6076-4345-9e2b-1996050e594f.gif)
 
 Almost all the calculations are performed in a fragment shader, from which the number of objects does not affect performance, but strongly depends on the resolution.
