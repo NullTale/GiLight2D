@@ -46,6 +46,7 @@ namespace GiLight2D.Editor
             
 
             EditorGUI.indentLevel --;
+            
             // -----------------------------------------------------------------------
             Rect _fieldRect(int line)
             {

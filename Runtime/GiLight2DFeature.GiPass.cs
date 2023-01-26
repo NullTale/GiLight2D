@@ -161,9 +161,15 @@ namespace GiLight2D
 				
                 switch (_owner._noiseOptions._noiseMode)
                 {
+                    case NoiseMode.None:
+                    {
+                        _owner._giMat.SetTexture(s_NoiseTexId, Texture2D.blackTexture);
+                    } break;
                     case NoiseMode.Dynamic:
                     {
-                        _owner._giMat.SetVector(s_NoiseOffsetId, new Vector4(Random.value, Random.value, 0, 0));
+                        _owner._giMat.SetVector(s_NoiseOffsetId, new Vector4((Time.unscaledTime % _owner._noiseOptions._noisePeriod.x) / _owner._noiseOptions._noisePeriod.x,
+                                                                             (Time.unscaledTime % _owner._noiseOptions._noisePeriod.y) / _owner._noiseOptions._noisePeriod.y,
+                                                                             0, 0));
                         _owner._giMat.SetTexture(s_NoiseTexId, k_Noise);
                     } break;
                     case NoiseMode.Static:
@@ -173,10 +179,6 @@ namespace GiLight2D
                     case NoiseMode.Shader:
                     {
                         _owner._giMat.SetVector(s_NoiseOffsetId, new Vector4(Random.value, Random.value, 0, 0));
-                    } break;
-                    case NoiseMode.None:
-                    {
-                        _owner._giMat.SetTexture(s_NoiseTexId, Texture2D.blackTexture);
                     } break;
                     default:
                         throw new ArgumentOutOfRangeException();

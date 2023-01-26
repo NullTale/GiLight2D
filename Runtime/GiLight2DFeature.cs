@@ -106,9 +106,8 @@ namespace GiLight2D
 
         private bool ForceTextureOutput => _output._finalBlit == FinalBlit.Texture;
         private bool HasGiBorder        => _border.Enabled && _border.Value.Value > 0f;
-        //private bool HasAlphaTexture    => _traceOptions._bounces > 0 || _solidTexture.Enabled;
 		
-        public int   Samples   { get => _rays;               set => _rays = value; }
+        public int   Rays      { get => _rays;                  set => _rays = value; }
         public float Falloff   { get => _falloff.Value.Value;   set => _falloff.Value.Value = value; }
         public float Intensity { get => _intensity.Value.Value; set => _intensity.Value.Value = value; }
         public float Scale     { get => _scaleMode._ratio;      set => _scaleMode._ratio = value; }
@@ -316,7 +315,8 @@ namespace GiLight2D
         {
             public NoiseMode _noiseMode = NoiseMode.Shader;
             [Range(0.01f, 1f)]
-            public float _noiseScale = 1f;
+            public float   _noiseScale = 1f;
+            public Vector2 _noisePeriod = new Vector2(3f, 3f);
         }
         
         [Serializable]
@@ -358,10 +358,10 @@ namespace GiLight2D
 		
         public enum NoiseMode
         {
-            Dynamic = 0,
-            Static  = 1,
-            Shader  = 2,
-            None    = 3
+            None    = 0,
+            Dynamic = 1,
+            Static  = 2,
+            Shader  = 3,
         }
 
         public enum DebugOutput
@@ -522,13 +522,7 @@ namespace GiLight2D
 
                 _ => throw new ArgumentOutOfRangeException()
             };
-			
-            _rtDesc.width  = _rtRes.x;
-            _rtDesc.height = _rtRes.y;
             
-            _rtBounceRes.x = Mathf.CeilToInt(_rtRes.x * _traceOptions._scale);
-            _rtBounceRes.y = Mathf.CeilToInt(_rtRes.y * _traceOptions._scale);
-			
             var ortho   = renderingData.cameraData.camera.orthographicSize;
             var uvScale = _border.Enabled ? (ortho + _border.Value.Value) / ortho : 1f;
             
@@ -536,11 +530,17 @@ namespace GiLight2D
             if (_border.Enabled)
             {
                 var scaleInc = uvScale - 1f;
-                _rtDesc.width  += Mathf.FloorToInt(_rtDesc.width * scaleInc);
-                _rtDesc.height += Mathf.FloorToInt(_rtDesc.height * scaleInc);;
+                _rtRes.x += Mathf.FloorToInt(_rtRes.x * scaleInc);
+                _rtRes.y += Mathf.FloorToInt(_rtRes.x * scaleInc);;
             }
 			
             _giMat.SetVector(s_ScaleId, new Vector4(uvScale, uvScale, 1f, 1f));
+            
+            _rtDesc.width  = _rtRes.x;
+            _rtDesc.height = _rtRes.y;
+            
+            _rtBounceRes.x = Mathf.CeilToInt(_rtRes.x * _traceOptions._scale);
+            _rtBounceRes.y = Mathf.CeilToInt(_rtRes.y * _traceOptions._scale);
         }
 		
         private void _initNoise()
