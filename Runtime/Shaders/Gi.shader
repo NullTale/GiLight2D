@@ -26,7 +26,7 @@ Shader "Hidden/GiLight2D/Gi"
             sampler2D _DistTex;
             sampler2D _NoiseTex;
 
-            float _Samples;
+            float  _Samples;
             float4 _Aspect;
             float4 _Scale;
             float2 _NoiseOffset;
@@ -67,13 +67,13 @@ Shader "Hidden/GiLight2D/Gi"
                 {
                     float3 result = col.rgb;
 #ifdef FALLOFF_IMPACT
-                    result *= (1 + distance(uv, uvPos)) / _Falloff;
+                    result *= falloff(uv, uvPos, _Falloff);
 #endif
                     return result;
                 }
                 
                 uvPos += dir * tex2D(_DistTex, uvPos).rr;
-                if (uvPos.x < 0 || uvPos.y < 0 || uvPos.x > 1 || uvPos.y > 1)
+                if (notUVSpace(uvPos))
                     return AMBIENT;
                 
                 [unroll]
@@ -84,13 +84,13 @@ Shader "Hidden/GiLight2D/Gi"
                     {
                         float3 result = col.rgb + tex2D(_BounceTex, uvPos).rgb;
 #ifdef FALLOFF_IMPACT
-                        result *= (1 + distance(uv, uvPos)) / _Falloff;
+                        result *= falloff(uv, uvPos, _Falloff);
 #endif
                         return result;
                     }
 
                     uvPos += dir * tex2D(_DistTex, uvPos).rr;
-                    if (uvPos.x < 0 || uvPos.y < 0 || uvPos.x > 1 || uvPos.y > 1)
+                    if (notUVSpace(uvPos))
                         return AMBIENT;
                 }
 #else
@@ -103,13 +103,13 @@ Shader "Hidden/GiLight2D/Gi"
                     {
                         float3 result = col.rgb;
 #ifdef FALLOFF_IMPACT
-                        result *= (1 + distance(uv, uvPos)) / _Falloff;
+                        result *= falloff(uv, uvPos, _Falloff);
 #endif
                         return result;
                     }
 
                     uvPos += dir * tex2D(_DistTex, uvPos).rr;
-                    if (uvPos.x < 0 || uvPos.y < 0 || uvPos.x > 1 || uvPos.y > 1)
+                    if (notUVSpace(uvPos))
                         return AMBIENT;
                 }
 #endif
@@ -123,9 +123,9 @@ Shader "Hidden/GiLight2D/Gi"
 #if defined(FRAGMENT_RANDOM)
                 const float rand = random(i.noise_uv);
 #elif defined(TEXTURE_RANDOM)
-				const float rand = tex2D(_NoiseTex, i.noise_uv).r * float(3.1415);
+                const float rand = tex2D(_NoiseTex, i.noise_uv).r * float(3.1415);
 #else
-				const float rand = 0;
+                const float rand = 0;
 #endif
 
                 for (float f = 0.; f < _Samples; f++)
@@ -214,7 +214,7 @@ Shader "Hidden/GiLight2D/Gi"
                         float3 result = _ColorTex.Sample(linear_clamp_sampler, uvPos).rgb;
 
 #ifdef FALLOFF_IMPACT
-                        result *= (1 + distance(uv, uvPos)) / _Falloff;
+                        result *= falloff(uv, uvPos, _Falloff);
 #endif
 
                         return result;
@@ -226,7 +226,6 @@ Shader "Hidden/GiLight2D/Gi"
             
             float4 frag(fragIn_gi i) : SV_Target
             {
-                //if (isOutlinePixel(_AlphaTex, i.uv, _Aspect.zw) == false)
                 if (tex2D(_AlphaTex, i.uv).r == 0)
                     discard;
                 
@@ -235,9 +234,9 @@ Shader "Hidden/GiLight2D/Gi"
 #if defined(FRAGMENT_RANDOM)
                 const float rand = random(i.noise_uv);
 #elif defined(TEXTURE_RANDOM)
-				const float rand = tex2D(_NoiseTex, i.noise_uv).r * float(3.1415);
+                const float rand = tex2D(_NoiseTex, i.noise_uv).r * float(3.1415);
 #else
-				const float rand = 0;
+                const float rand = 0;
 #endif
                 for (float f = 0.; f < _Samples; f++)
                 {
