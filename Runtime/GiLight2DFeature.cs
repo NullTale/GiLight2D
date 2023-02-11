@@ -70,10 +70,10 @@ namespace GiLight2D
         [Tooltip("Additional orthographic camera space, to make objects visible outside of the camera frame.")]
         private Optional<RangeFloat> _border = new Optional<RangeFloat>(new RangeFloat(new Vector2(.0f, 3f), 0f), false);
         [SerializeField]
-        private ScaleModeOptions       _scaleMode = new ScaleModeOptions();
+        private ScaleModeOptions     _scaleMode = new ScaleModeOptions();
 		
         [SerializeField]
-        private Output              _output = new Output();
+        private OutputOptions        _output = new OutputOptions();
         //[SerializeField]
         //[Tooltip("Texture with objects mask, can be useful for lights combination.")]
         //private Optional<string>    _solidTexture = new Optional<string>("_GiSolidTex", false);
@@ -94,10 +94,10 @@ namespace GiLight2D
 		
         private GiPass              _giPass;
 		
+        private Material _giMat;
         private Material _blitMat;
         private Material _jfaMat;
         private Material _distMat;
-        private Material _giMat;
         private Material _blurMat;
 		
         private RenderTextureDescriptor _rtDesc = new RenderTextureDescriptor(0, 0, GraphicsFormat.None, 0, 0);
@@ -300,7 +300,7 @@ namespace GiLight2D
         }
 
         [Serializable]
-        public class Output
+        public class OutputOptions
         {
             [Tooltip("Where to store Gi result. If the final result is a camera, then could be applied a post processing.")]
             public FinalBlit _finalBlit = FinalBlit.Camera;
@@ -386,7 +386,7 @@ namespace GiLight2D
             Cross,
             Box
         }
-        
+
         // =======================================================================
         public override void Create()
         {
@@ -485,11 +485,11 @@ namespace GiLight2D
         private void _validateShaders()
         {
 #if UNITY_EDITOR
+            _validate(ref _shaders._gi,		k_GiShader);
             _validate(ref _shaders._blit,	k_BlitShader);
             _validate(ref _shaders._jfa,	k_JfaShader);
-            _validate(ref _shaders._gi,		k_GiShader);
-            _validate(ref _shaders._blur,	k_BlurShader);
             _validate(ref _shaders._dist,	k_DistShader);
+            _validate(ref _shaders._blur,	k_BlurShader);
 			
             UnityEditor.EditorUtility.SetDirty(this);
             // -----------------------------------------------------------------------

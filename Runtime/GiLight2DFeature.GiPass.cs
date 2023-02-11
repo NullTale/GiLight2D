@@ -31,17 +31,17 @@ namespace GiLight2D
             {
                 renderPassEvent = _owner._event;
 				
-                _buffer = new RenderTarget().Allocate(nameof(_buffer));
+                _buffer       = new RenderTarget().Allocate(nameof(_buffer));
                 _bounceResult = new RenderTarget().Allocate(nameof(_bounceResult));
-                _dist   = new RenderTarget().Allocate(nameof(_dist));
-                _bounce = new RenderTargetFlip(new RenderTarget().Allocate($"{nameof(_bounce)}_a"), new RenderTarget().Allocate($"{nameof(_bounce)}_b"));
+                _dist         = new RenderTarget().Allocate(nameof(_dist));
+                _bounce       = new RenderTargetFlip(new RenderTarget().Allocate($"{nameof(_bounce)}_a"), new RenderTarget().Allocate($"{nameof(_bounce)}_b"));
                 _bounceTmp    = new RenderTarget().Allocate(nameof(_bounceTmp));
-                _alpha  = new RenderTarget().Allocate(nameof(_alpha));
-                _jfa    = new RenderTargetFlip(new RenderTarget().Allocate($"{nameof(_jfa)}_a"), new RenderTarget().Allocate($"{nameof(_jfa)}_b"));
-                _pp     = new RenderTargetPostProcess(new RenderTarget().Allocate($"{nameof(_pp)}_a"), new RenderTarget().Allocate($"{nameof(_pp)}_b"));
-                _output = new RenderTarget().Allocate(_owner._output._outputGlobalTexture);
+                _alpha        = new RenderTarget().Allocate(nameof(_alpha));
+                _jfa          = new RenderTargetFlip(new RenderTarget().Allocate($"{nameof(_jfa)}_a"), new RenderTarget().Allocate($"{nameof(_jfa)}_b"));
+                _pp           = new RenderTargetPostProcess(new RenderTarget().Allocate($"{nameof(_pp)}_a"), new RenderTarget().Allocate($"{nameof(_pp)}_b"));
+                _output       = new RenderTarget().Allocate(_owner._output._outputGlobalTexture);
 				
-                _filtering = new FilteringSettings(RenderQueueRange.transparent, _owner._mask);
+                _filtering = new FilteringSettings(RenderQueueRange.all, _owner._mask);
                 _override  = new RenderStateBlock(RenderStateMask.Nothing);
             }
 

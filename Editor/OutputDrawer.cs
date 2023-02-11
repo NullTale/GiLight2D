@@ -4,20 +4,20 @@ using UnityEngine;
 
 namespace GiLight2D.Editor
 {
-    [CustomPropertyDrawer(typeof(GiLight2DFeature.Output))]
+    [CustomPropertyDrawer(typeof(GiLight2DFeature.OutputOptions))]
     public class OutputDrawer : PropertyDrawer
     {
         // =======================================================================
         public override float GetPropertyHeight(SerializedProperty property, GUIContent label)
         {
-            var finalBlit = property.FindPropertyRelative(nameof(GiLight2DFeature.Output._finalBlit));
+            var finalBlit = property.FindPropertyRelative(nameof(GiLight2DFeature.OutputOptions._finalBlit));
             return finalBlit.intValue == (int)GiLight2DFeature.FinalBlit.Camera ? EditorGUIUtility.singleLineHeight : EditorGUIUtility.singleLineHeight * 2;
         }
 
         public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
         {
-            var finalBlit = property.FindPropertyRelative(nameof(GiLight2DFeature.Output._finalBlit));
-            var giTexture = property.FindPropertyRelative(nameof(GiLight2DFeature.Output._outputGlobalTexture));
+            var finalBlit = property.FindPropertyRelative(nameof(GiLight2DFeature.OutputOptions._finalBlit));
+            var giTexture = property.FindPropertyRelative(nameof(GiLight2DFeature.OutputOptions._outputGlobalTexture));
             
             EditorGUI.PropertyField(new Rect(position.x, position.y, position.width, EditorGUIUtility.singleLineHeight), finalBlit);
 
