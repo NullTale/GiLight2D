@@ -52,6 +52,18 @@ namespace GiLight2D
                 ref var bounceRes  = ref _owner._rtBounceRes;
                 ref var desc = ref _owner._rtDesc;
                 var     cmd  = CommandBufferPool.Get(nameof(GiLight2DFeature));
+                if (_owner.ForceTextureOutput)
+                {
+                    _output.Get(cmd, desc);
+                    cmd.SetGlobalTexture(_output.Id, _output.Handle.nameID);
+
+                    if (_owner._requireDraw == false)
+                    {
+                        // only set global texture
+                        _execute();
+                        return;
+                    }
+                }
 #if UNITY_2021
                 _cameraOutput = RTHandles.Alloc(renderingData.cameraData.renderer.cameraColorTarget);
 #else
@@ -80,9 +92,6 @@ namespace GiLight2D
                 {
                     _buffer.Get(cmd, desc);
                 }
-
-                if (_owner.ForceTextureOutput)
-                    _output.Get(cmd, desc);
 
                 desc.colorFormat = RenderTextureFormat.RG16;
                 _jfa.Get(cmd, desc);
@@ -278,7 +287,8 @@ namespace GiLight2D
                             _blit(_dist.Handle, output, _owner._blitMat);
                             break;
                         case DebugOutput.Bounce:
-                            _blit(_bounceResult.Handle, output, _owner._blitMat);
+                            if (_owner._traceOptions._enable)
+                                _blit(_bounceResult.Handle, output, _owner._blitMat);
                             break;
                         case DebugOutput.None:
                         default:

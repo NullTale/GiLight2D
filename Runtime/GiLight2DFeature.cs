@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
@@ -39,6 +38,8 @@ namespace GiLight2D
         private static List<ShaderTagId> k_ShaderTags;
         private static Mesh              k_ScreenMesh;
         private static Texture2D         k_Noise;
+        
+        public static Mesh ScreenMesh => k_ScreenMesh;
 
         [SerializeField]
         private RenderPassEvent     _event = RenderPassEvent.BeforeRenderingOpaques;
@@ -74,25 +75,22 @@ namespace GiLight2D
 		
         [SerializeField]
         private OutputOptions        _output = new OutputOptions();
-        //[SerializeField]
-        //[Tooltip("Texture with objects mask, can be useful for lights combination.")]
-        //private Optional<string>    _solidTexture = new Optional<string>("_GiSolidTex", false);
         [SerializeField]
-        private BlurOptions         _blurOptions = new BlurOptions();
+        private BlurOptions          _blurOptions = new BlurOptions();
         [Header("Debug")]
         [SerializeField]
         [Tooltip("Override final output for debug purposes.")]
-        private DebugOutput         _outputOverride = DebugOutput.None;
+        private DebugOutput          _outputOverride = DebugOutput.None;
 		
         [SerializeField]
         [Tooltip("Run render feature in scene view project window.")]
-        private bool                _runInSceneView;
+        private bool                 _runInSceneView;
 		
 		
         [SerializeField]
-        private ShaderCollection    _shaders = new ShaderCollection();
+        private ShaderCollection     _shaders = new ShaderCollection();
 		
-        private GiPass              _giPass;
+        private GiPass               _giPass;
 		
         private Material _giMat;
         private Material _blitMat;
@@ -103,6 +101,7 @@ namespace GiLight2D
         private RenderTextureDescriptor _rtDesc = new RenderTextureDescriptor(0, 0, GraphicsFormat.None, 0, 0);
         private Vector2Int              _rtRes  = Vector2Int.zero;
         private Vector2Int              _rtBounceRes  = Vector2Int.zero;
+        private Fps                     _fps = new Fps();
 
         private bool ForceTextureOutput => _output._finalBlit == FinalBlit.Texture;
         private bool HasGiBorder        => _border.Enabled && _border.Value.Value > 0f;
@@ -143,6 +142,8 @@ namespace GiLight2D
                 _initNoise();
             }
         }
+        
+        private bool    _requireDraw;
 
         // =======================================================================
         public class RenderTarget
@@ -304,10 +305,10 @@ namespace GiLight2D
         {
             [Tooltip("Where to store Gi result. If the final result is a camera, then could be applied a post processing.")]
             public FinalBlit _finalBlit = FinalBlit.Camera;
+            [Tooltip("Frame rate of gi texture")]
+            public Optional<RangeFloat> _fps = new Optional<RangeFloat>(new RangeFloat(new Vector2(.0f, 120), 24.5f), false);
             [Tooltip("Global name of output texture.")]
             public string _outputGlobalTexture = "_GiTex";
-            /*[Tooltip("Base objects texture with alpha mask")]
-            public Optional<string> _outputBufferTexture = new Optional<string>("_GiBufferTex", false);*/
         }
 		
         [Serializable]
@@ -348,7 +349,45 @@ namespace GiLight2D
             public Shader _dist;
             public Shader _blur;
         }
-		
+
+        [Serializable]
+        public class Fps
+        {
+            [Range(0.1f, 60.0f)]
+            public float _observation = 1.0f;
+            
+            private float        _fps;
+            private float        _deltaSum;
+            private Queue<float> _framesDelta = new Queue<float>();
+
+            private float _lastFrame;
+
+            public float Current => _fps;
+
+            // =======================================================================
+            public void Update()
+            {
+                var currentDelta = Time.time - _lastFrame;
+                while (_deltaSum + currentDelta > _observation && _framesDelta.Count > 0)
+                    _deltaSum -= _framesDelta.Dequeue();
+
+                _fps = _framesDelta.Count > 0 ? _framesDelta.Count / (_deltaSum + currentDelta) : 0;
+            }
+            
+            public void Frame()
+            {
+                // do not update twice in one frame if we use renderer multiple times
+                if (_lastFrame == Time.time)
+                    return;
+                
+                var deltaTime = Time.time - _lastFrame; 
+                _lastFrame = Time.time;
+                
+                _framesDelta.Enqueue(deltaTime);
+                _deltaSum += deltaTime;
+            }
+        }
+        
         public enum ScaleMode
         {
             None,
@@ -392,6 +431,8 @@ namespace GiLight2D
         {
             _giPass = new GiPass() { _owner = this };
             _giPass.Init();
+            
+            _fps = new Fps();
 
             _validateShaders();
 			
@@ -435,9 +476,20 @@ namespace GiLight2D
                 if (renderingData.cameraData.cameraType != CameraType.Game)
                     return;
             }
-			
+            
+            _requireDraw = true;
+            
+            if (_output._finalBlit == FinalBlit.Texture && _output._fps.Enabled)
+            {
+                if (_fps.Current >= _output._fps.Value.Value)
+                    _requireDraw = false;
+                else
+                    _fps.Frame();
+                
+			    _fps.Update();
+            }
+                
             _setupDesc(in renderingData);
-
             renderer.EnqueuePass(_giPass);
         }
 
