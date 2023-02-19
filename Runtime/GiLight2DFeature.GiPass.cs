@@ -64,6 +64,7 @@ namespace GiLight2D
                         return;
                     }
                 }
+                
 #if UNITY_2021
                 _cameraOutput = RTHandles.Alloc(renderingData.cameraData.renderer.cameraColorTarget);
 #else

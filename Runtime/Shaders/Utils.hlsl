@@ -2,8 +2,22 @@
 #define GI_LIGHT_2D_INCLUDED
 
 
+#pragma multi_compile_local STEPS_4 STEPS_6 STEPS_8 STEPS_12 STEPS_16
+
 #define AMBIENT		float3(0, 0, 0)
+
+#if defined STEPS_4
+#define STEPS		4
+#elif defined STEPS_6
+#define STEPS		6
+#elif defined STEPS_8
+#define STEPS		8
+#elif defined STEPS_12
+#define STEPS		12
+
+#elif defined STEPS_16
 #define STEPS		16
+#endif
 
 struct vertIn
 {

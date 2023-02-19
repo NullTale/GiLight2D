@@ -56,13 +56,16 @@ namespace GiLight2D
         [SerializeField]
         public TraceOptions         _traceOptions = new TraceOptions();
         [SerializeField]
-        //[Tooltip("Light falloff, ")]
+        [Tooltip("Light falloff to control propagation curve")]
         private Optional<RangeFloat> _falloff = new Optional<RangeFloat>(new RangeFloat(new Vector2(.01f, 1f), 1f), false);
         [SerializeField]
         [Tooltip("Final light intensity, basically color multiplier")]
         private Optional<RangeFloat> _intensity = new Optional<RangeFloat>(new RangeFloat(new Vector2(.0f, 3f), 1f), false);
         [SerializeField]
-        [Tooltip("Distance map additional impact for raytracing.")]
+        [Tooltip("Maximum number of ray steps")]
+        private RaySteps             _steps = RaySteps.N16;
+        [SerializeField]
+        [Tooltip("Distance map additional offset for each ray step.")]
         private Optional<RangeFloat> _distOffset = new Optional<RangeFloat>(new RangeFloat(new Vector2(.0f, .1f), .0f), false);
         [SerializeField]
         private NoiseOptions        _noiseOptions = new NoiseOptions();
@@ -110,6 +113,7 @@ namespace GiLight2D
         public float Falloff   { get => _falloff.Value.Value;   set => _falloff.Value.Value = value; }
         public float Intensity { get => _intensity.Value.Value; set => _intensity.Value.Value = value; }
         public float Scale     { get => _scaleMode._ratio;      set => _scaleMode._ratio = value; }
+        
         public NoiseMode Noise
         {
             get => _noiseOptions._noiseMode;
@@ -122,6 +126,12 @@ namespace GiLight2D
             }
         }
 
+        public RaySteps Steps
+        {
+            get => _steps;
+            set => _setSteps(value);
+        }
+        
         public float Border
         {
             get => _border.Enabled ? _border.Value.Value : 0f;
@@ -143,7 +153,7 @@ namespace GiLight2D
             }
         }
         
-        private bool    _requireDraw;
+        private bool _requireDraw;
 
         // =======================================================================
         public class RenderTarget
@@ -426,6 +436,15 @@ namespace GiLight2D
             Box
         }
 
+        public enum RaySteps
+        {
+            N4,
+            N6,
+            N8,
+            N12,
+            N16,
+        }
+        
         // =======================================================================
         public override void Create()
         {
@@ -532,6 +551,7 @@ namespace GiLight2D
                 _giMat.EnableKeyword("INTENSITY_IMPACT");
             if (_traceOptions._enable)
                 _giMat.EnableKeyword("RAY_BOUNCES");
+            _setSteps(_steps);
         }
         
         private void _validateShaders()
@@ -673,6 +693,53 @@ namespace GiLight2D
             }
         }
 		
+        private void _setSteps(RaySteps steps)
+        {
+            switch (_steps)
+            {
+                case RaySteps.N4:
+                    _giMat.DisableKeyword("STEPS_4");
+                    break;
+                case RaySteps.N6:
+                    _giMat.DisableKeyword("STEPS_6");
+                    break;
+                case RaySteps.N8:
+                    _giMat.DisableKeyword("STEPS_8");
+                    break;
+                case RaySteps.N12:
+                    _giMat.DisableKeyword("STEPS_12");
+                    break;
+                case RaySteps.N16:
+                    _giMat.DisableKeyword("STEPS_16");
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+            
+            _steps = steps;
+            
+            switch (_steps)
+            {
+                case RaySteps.N4:
+                    _giMat.EnableKeyword("STEPS_4");
+                    break;
+                case RaySteps.N6:
+                    _giMat.EnableKeyword("STEPS_6");
+                    break;
+                case RaySteps.N8:
+                    _giMat.EnableKeyword("STEPS_8");
+                    break;
+                case RaySteps.N12:
+                    _giMat.EnableKeyword("STEPS_12");
+                    break;
+                case RaySteps.N16:
+                    _giMat.EnableKeyword("STEPS_16");
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+        }
+        
         private static void _initScreenMesh(Mesh mesh, Matrix4x4 mat)
         {
             mesh.vertices  = _verts(0f);

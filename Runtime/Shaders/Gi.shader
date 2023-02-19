@@ -140,6 +140,7 @@ Shader "Hidden/GiLight2D/Gi"
                 result /= _Samples;
 
                 return float4(result, 1);
+                //return float4(result, dot(result, float3(0.299, 0.587, 0.114)));        // rec601
             }
             ENDHLSL
         }
