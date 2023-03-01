@@ -65,14 +65,14 @@ namespace GiLight2D
                     }
                 }
                 
-#if UNITY_2021
+#if !UNITY_2022_1_OR_NEWER
                 _cameraOutput = RTHandles.Alloc(renderingData.cameraData.renderer.cameraColorTarget);
 #else
-				_cameraOutput = renderingData.cameraData.renderer.cameraColorTargetHandle;
+                _cameraOutput = renderingData.cameraData.renderer.cameraColorTargetHandle;
 #endif
                 
                 var aspectRatio = (res.x / (float)res.y);
-                var piercing = Mathf.Lerp(0f, 6f,_owner._traceOptions._piercing) / (800f / Mathf.Max(bounceRes.x, bounceRes.y));
+                var piercing = Mathf.LerpUnclamped(0f, 7f,_owner._traceOptions._piercing) / (800f / Mathf.Max(bounceRes.x, bounceRes.y));
                 _owner._giMat.SetVector(s_AspectId, new Vector4(aspectRatio, 1f, piercing * aspectRatio / bounceRes.x, piercing / bounceRes.y));
                 _owner._giMat.SetFloat(s_SamplesId, _owner._rays);
                 if (_owner._falloff.Enabled)
@@ -169,26 +169,33 @@ namespace GiLight2D
                 cmd.SetGlobalTexture(s_ColorTexId, _buffer.Handle.nameID);
                 cmd.SetGlobalTexture(s_DistTexId, _dist.Handle.nameID);
 				
-                switch (_owner._noiseOptions._noiseMode)
+                switch (_owner._noiseOptions._noise)
                 {
-                    case NoiseMode.None:
+                    case NoiseSource.None:
                     {
                         _owner._giMat.SetTexture(s_NoiseTexId, Texture2D.blackTexture);
                     } break;
-                    case NoiseMode.Dynamic:
+                    case NoiseSource.Texture:
                     {
-                        _owner._giMat.SetVector(s_NoiseOffsetId, new Vector4((Time.unscaledTime % _owner._noiseOptions._noisePeriod.x) / _owner._noiseOptions._noisePeriod.x,
-                                                                             (Time.unscaledTime % _owner._noiseOptions._noisePeriod.y) / _owner._noiseOptions._noisePeriod.y,
-                                                                             0, 0));
+                        var xOffset = 0f;
+                        if (_owner._noiseOptions._velocity.x != 0)
+                        {
+                            var xPeriod = (1f / _owner._noiseOptions._velocity.x);
+                            xOffset = -(Time.unscaledTime % xPeriod / xPeriod);
+                        } 
+                        var yOffset = 0f;
+                        if (_owner._noiseOptions._velocity.y != 0)
+                        {
+                            var yPeriod = (1f / _owner._noiseOptions._velocity.y);
+                            yOffset = -(Time.unscaledTime % yPeriod / yPeriod);
+                        }
+                        
+                        _owner._giMat.SetVector(s_NoiseTilingOffsetId, new Vector4(_owner._noiseTiling.x, _owner._noiseTiling.y, xOffset, yOffset));
                         _owner._giMat.SetTexture(s_NoiseTexId, k_Noise);
                     } break;
-                    case NoiseMode.Static:
+                    case NoiseSource.Shader:
                     {
-                        _owner._giMat.SetTexture(s_NoiseTexId, k_Noise);
-                    } break;
-                    case NoiseMode.Shader:
-                    {
-                        _owner._giMat.SetVector(s_NoiseOffsetId, new Vector4(Random.value, Random.value, 0, 0));
+                        _owner._giMat.SetVector(s_NoiseTilingOffsetId, new Vector4(Random.value, Random.value, 0, 0));
                     } break;
                     default:
                         throw new ArgumentOutOfRangeException();
@@ -248,7 +255,7 @@ namespace GiLight2D
                     }
                     
                     cmd.SetGlobalTexture(s_ColorTexId, _buffer.Handle.nameID);
-                    cmd.SetGlobalTexture("_BounceTex", _bounceResult.Handle.nameID);
+                    cmd.SetGlobalTexture(s_BounceTexId, _bounceResult.Handle.nameID);
                 }
 
                 // draw gi & apply post process
@@ -289,7 +296,15 @@ namespace GiLight2D
                             break;
                         case DebugOutput.Bounce:
                             if (_owner._traceOptions._enable)
+                            {
                                 _blit(_bounceResult.Handle, output, _owner._blitMat);
+                            }
+                            else
+                            {
+                                // just black
+                                cmd.SetRenderTarget(output);
+                                cmd.ClearRenderTarget(RTClearFlags.Color, Color.clear, 1f, 0);
+                            }
                             break;
                         case DebugOutput.None:
                         default:

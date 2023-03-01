@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
@@ -16,24 +17,25 @@ namespace GiLight2D
         private const string k_BlurShader  = "Hidden/GiLight2D/Blur";
         private const string k_DistShader  = "Hidden/GiLight2D/Distance";
 		
-        private static readonly int s_MainTexId         = Shader.PropertyToID("_MainTex");
-        private static readonly int s_NoiseOffsetId     = Shader.PropertyToID("_NoiseOffset");
-        private static readonly int s_NoiseTexId        = Shader.PropertyToID("_NoiseTex");
-        private static readonly int s_UvScaleId         = Shader.PropertyToID("_UvScale");
-        private static readonly int s_FalloffId         = Shader.PropertyToID("_Falloff");
-        private static readonly int s_IntensityId       = Shader.PropertyToID("_Intensity");
-        private static readonly int s_IntensityBounceId = Shader.PropertyToID("_IntensityBounce");
-        private static readonly int s_SamplesId         = Shader.PropertyToID("_Samples");
-        private static readonly int s_OffsetId          = Shader.PropertyToID("_Offset");
-        private static readonly int s_ColorTexId        = Shader.PropertyToID("_ColorTex");
-        private static readonly int s_DistTexId         = Shader.PropertyToID("_DistTex");
-        private static readonly int s_AspectId          = Shader.PropertyToID("_Aspect");
-        private static readonly int s_StepSizeId        = Shader.PropertyToID("_StepSize");
-        private static readonly int s_ScaleId           = Shader.PropertyToID("_Scale");
-        private static readonly int s_StepId            = Shader.PropertyToID("_Step");
-        private static readonly int s_AlphaTexId        = Shader.PropertyToID("_AlphaTex");
-        private static readonly int s_ATexId            = Shader.PropertyToID("_ATex");
-        private static readonly int s_BTexId            = Shader.PropertyToID("_BTex");
+        private static readonly int s_MainTexId           = Shader.PropertyToID("_MainTex");
+        private static readonly int s_NoiseTilingOffsetId = Shader.PropertyToID("_NoiseTilingOffset");
+        private static readonly int s_NoiseTexId          = Shader.PropertyToID("_NoiseTex");
+        private static readonly int s_UvScaleId           = Shader.PropertyToID("_UvScale");
+        private static readonly int s_FalloffId           = Shader.PropertyToID("_Falloff");
+        private static readonly int s_IntensityId         = Shader.PropertyToID("_Intensity");
+        private static readonly int s_IntensityBounceId   = Shader.PropertyToID("_IntensityBounce");
+        private static readonly int s_SamplesId           = Shader.PropertyToID("_Samples");
+        private static readonly int s_OffsetId            = Shader.PropertyToID("_Offset");
+        private static readonly int s_ColorTexId          = Shader.PropertyToID("_ColorTex");
+        private static readonly int s_BounceTexId         = Shader.PropertyToID("_BounceTex");
+        private static readonly int s_DistTexId           = Shader.PropertyToID("_DistTex");
+        private static readonly int s_AspectId            = Shader.PropertyToID("_Aspect");
+        private static readonly int s_StepSizeId          = Shader.PropertyToID("_StepSize");
+        private static readonly int s_ScaleId             = Shader.PropertyToID("_Scale");
+        private static readonly int s_StepId              = Shader.PropertyToID("_Step");
+        private static readonly int s_AlphaTexId          = Shader.PropertyToID("_AlphaTex");
+        private static readonly int s_ATexId              = Shader.PropertyToID("_ATex");
+        private static readonly int s_BTexId              = Shader.PropertyToID("_BTex");
 		
         private static List<ShaderTagId> k_ShaderTags;
         private static Mesh              k_ScreenMesh;
@@ -50,8 +52,8 @@ namespace GiLight2D
         [Tooltip("Enable depth stencil buffer for Gi objects rendering. Allows mask interaction and z culling.")]
         private bool                _depthStencil = true;
 		
-        [Tooltip("How many rays to emit from each pixel.")]
         [SerializeField]
+        [Tooltip("How many rays to emit from each pixel.")]
         private int                 _rays = 100;
         [SerializeField]
         public TraceOptions         _traceOptions = new TraceOptions();
@@ -69,7 +71,6 @@ namespace GiLight2D
         private Optional<RangeFloat> _distOffset = new Optional<RangeFloat>(new RangeFloat(new Vector2(.0f, .1f), .0f), false);
         [SerializeField]
         private NoiseOptions        _noiseOptions = new NoiseOptions();
-        private Vector2Int          _noiseResolution;
         [SerializeField]
         [Tooltip("Additional orthographic camera space, to make objects visible outside of the camera frame.")]
         private Optional<RangeFloat> _border = new Optional<RangeFloat>(new RangeFloat(new Vector2(.0f, 3f), 0f), false);
@@ -101,29 +102,82 @@ namespace GiLight2D
         private Material _distMat;
         private Material _blurMat;
 		
-        private RenderTextureDescriptor _rtDesc = new RenderTextureDescriptor(0, 0, GraphicsFormat.None, 0, 0);
-        private Vector2Int              _rtRes  = Vector2Int.zero;
-        private Vector2Int              _rtBounceRes  = Vector2Int.zero;
-        private Fps                     _fps = new Fps();
+        private RenderTextureDescriptor _rtDesc      = new RenderTextureDescriptor(0, 0, GraphicsFormat.None, 0, 0);
+        private Vector2Int              _rtRes       = Vector2Int.zero;
+        private Vector2Int              _noiseRes    = Vector2Int.zero;
+        private Vector2                 _noiseTiling = Vector2.one;
+        private Vector2Int              _rtBounceRes = Vector2Int.zero;
+        private Fps                     _fps         = new Fps();
 
         private bool ForceTextureOutput => _output._finalBlit == FinalBlit.Texture;
         private bool HasGiBorder        => _border.Enabled && _border.Value.Value > 0f;
 		
-        public int   Rays      { get => _rays;                  set => _rays = value; }
-        public float Falloff   { get => _falloff.Value.Value;   set => _falloff.Value.Value = value; }
-        public float Intensity { get => _intensity.Value.Value; set => _intensity.Value.Value = value; }
-        public float Scale     { get => _scaleMode._ratio;      set => _scaleMode._ratio = value; }
+        public int        Rays       { get => _rays;                  set => _rays = value; }
+        public float      Falloff    { get => _falloff.Value.Value;   set => _falloff.Value.Value = value; }
+        public float      Intensity  { get => _intensity.Value.Value; set => _intensity.Value.Value = value; }
+        public float      GiScale    { get => _scaleMode._ratio;      set => _scaleMode._ratio = value; }
+        public bool       Blur       { get => _blurOptions._enable;   set => _blurOptions._enable = value; }
+        public Vector2Int GiTexSize => _rtRes;
+        public Vector2Int NoiseTexSize => _noiseRes;
+
         
-        public NoiseMode Noise
+        public float BounceIntensity
         {
-            get => _noiseOptions._noiseMode;
+            get => _traceOptions._intencity;
+            set => _traceOptions._intencity = value;
+        }
+
+        public float BouncePiercing
+        {
+            get => _traceOptions._piercing;
+            set => _traceOptions._piercing = value;
+        }
+
+        public int BounceCount
+        {
             set
             {
-                if (_noiseOptions._noiseMode == value)
+                var isEnabled = value > 0;
+                if (isEnabled != _traceOptions._enable)
+                {
+                    _traceOptions._enable = isEnabled;
+                    
+                    if (isEnabled)
+                    {
+                        _giMat.EnableKeyword("RAY_BOUNCES");
+                    }
+                    else
+                    {
+                        _giMat.DisableKeyword("RAY_BOUNCES");
+                    }
+                }
+                
+                _traceOptions._bounces = Mathf.Clamp(value, 1, 3);
+            }
+            get => _traceOptions._bounces;
+        }
+        
+        public NoiseSource Noise
+        {
+            get => _noiseOptions._noise;
+            set
+            {
+                if (_noiseOptions._noise == value)
                     return;
 
                 _setNoiseState(value);
             }
+        }
+        public NoiseTexture NoisePattern
+        {
+            get => _noiseOptions._pattern;
+            set => _noiseOptions._pattern = value;
+        }
+        
+        public Vector2 NoiseVelocity
+        {
+            get => _noiseOptions._velocity;
+            set => _noiseOptions._velocity = value;
         }
 
         public RaySteps Steps
@@ -144,16 +198,23 @@ namespace GiLight2D
 
         public float NoiseScale
         {
-            get => _noiseOptions._noiseScale;
+            get => _noiseOptions._scale;
             set
             {
-                _noiseOptions._noiseScale = value;
+                _noiseOptions._scale = value;
 				
                 _initNoise();
             }
         }
-        
-        private bool _requireDraw;
+
+        public DebugOutput OutputOverride
+        {
+            get => _outputOverride;
+            set => _outputOverride = value;
+        }
+
+        private bool         _requireDraw;
+        private NoiseTexture _noisePattern;
 
         // =======================================================================
         public class RenderTarget
@@ -294,7 +355,7 @@ namespace GiLight2D
         {
             public bool     _enable;
             [Tooltip("Blur type")]
-            public BlurMode _mode = BlurMode.Cross;
+            public BlurMode _mode = BlurMode.Box;
             [Tooltip("Blur distance in uv coords, if disabled step will be set to one pixel per sample")]
             public Optional<RangeFloat> _step = new Optional<RangeFloat>(new RangeFloat(new Vector2(0f, 0.01f), 0.003f), true);
         }
@@ -302,11 +363,12 @@ namespace GiLight2D
         [Serializable]
         public class ScaleModeOptions
         {
+            [Tooltip("Resolution scale of gi texture.")]
             public ScaleMode _scaleMode;
-            [Tooltip("Texture scale")]
+            [Tooltip("Scale ration relative main resolution")]
             [Range(0.1f, 2f)]
             public float     _ratio  = 1f;
-            [Tooltip("Fixed height of render target, width will be set relative to the aspect")]
+            [Tooltip("Fixed height of gi texture, width will be set relative to the aspect")]
             public int       _height = 240;
         }
 
@@ -324,10 +386,13 @@ namespace GiLight2D
         [Serializable]
         public class NoiseOptions
         {
-            public NoiseMode _noiseMode = NoiseMode.Shader;
+            public NoiseSource   _noise = NoiseSource.Shader;
             [Range(0.01f, 1f)]
-            public float   _noiseScale = 1f;
-            public Vector2 _noisePeriod = new Vector2(3f, 3f);
+            public float         _scale    = 1f;
+            public Vector2       _velocity = new Vector2(0f, 0f);
+            public NoiseTexture  _pattern  = NoiseTexture.Random;
+            public bool          _bilinear = true;
+            public Texture2D     _texture;
         }
         
         [Serializable]
@@ -353,10 +418,10 @@ namespace GiLight2D
         [Serializable]
         public class ShaderCollection
         {
-            public Shader _blit;
-            public Shader _jfa;
             public Shader _gi;
+            public Shader _jfa;
             public Shader _dist;
+            public Shader _blit;
             public Shader _blur;
         }
 
@@ -405,21 +470,29 @@ namespace GiLight2D
             Fixed,
         }
 		
-        public enum NoiseMode
+        public enum NoiseSource
         {
             None    = 0,
-            Dynamic = 1,
-            Static  = 2,
+            Texture = 1,
             Shader  = 3,
+        }
+        
+        public enum NoiseTexture
+        {
+            Random,
+            LinesH,
+            LinesV,
+            Checker,
+            Texture,
         }
 
         public enum DebugOutput
         {
-            None,
-            Objects,
-            Flood,
-            Distance,
-            Bounce
+            None     = 0,
+            Objects  = 1,
+            Flood    = 2,
+            Distance = 3,
+            Bounce   = 4
         }
 
         public enum FinalBlit
@@ -457,7 +530,7 @@ namespace GiLight2D
 			
             _initMaterials();
 
-            _setNoiseState(_noiseOptions._noiseMode);
+            _setNoiseState(_noiseOptions._noise);
 			
             if (k_ScreenMesh == null)
             {
@@ -479,9 +552,17 @@ namespace GiLight2D
             // init noise
             _initNoise();
         }
-
+        
         public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
         {
+#if UNITY_EDITOR
+            // fix resources lost error after build
+            if (_giMat == null)
+            {
+                Create();
+            }
+#endif
+            
             if (_runInSceneView)
             {
                 // in game or scene view
@@ -595,6 +676,11 @@ namespace GiLight2D
                 _ => throw new ArgumentOutOfRangeException()
             };
             
+            if (_rtRes.x < 1)
+                _rtRes.x = 1;
+            if (_rtRes.y < 1)
+                _rtRes.y = 1;
+            
             var ortho   = renderingData.cameraData.camera.orthographicSize;
             var uvScale = _border.Enabled ? (ortho + _border.Value.Value) / ortho : 1f;
             
@@ -617,33 +703,86 @@ namespace GiLight2D
 		
         private void _initNoise()
         {
+            
             // try block to fix editor startup error
             try
             {
-                var width  = Mathf.CeilToInt(_rtRes.x * _noiseOptions._noiseScale);
-                var height = Mathf.CeilToInt(_rtRes.y * _noiseOptions._noiseScale);
+                var width  = Mathf.CeilToInt(Screen.width * _noiseOptions._scale);
+                var height = Mathf.CeilToInt(Screen.height * _noiseOptions._scale);
+                
+                if (width < 2)
+                    width = 2;
+                if (height < 2)
+                    height = 2;
                 
                 if (width > 4)
                     width  -= width % 4;
                 if (height > 4)
                     height -= height % 4;
                 
-                if (k_Noise != null && width == k_Noise.width && height == k_Noise.height)
+                // rebuild only if params was changed
+                if (k_Noise != null 
+                    && (width == k_Noise.width && height == k_Noise.height) 
+                    && (_noiseOptions._pattern == _noisePattern) 
+                    && (_noiseOptions._pattern != NoiseTexture.Texture) && (_noiseOptions._bilinear ? FilterMode.Bilinear : FilterMode.Point) == k_Noise.filterMode)
                     return;
+                
+                _noisePattern = _noiseOptions._pattern; 
+                
+                if (_noiseOptions._pattern == NoiseTexture.Texture)
+                {
+                    k_Noise = _noiseOptions._texture;
+                    _noiseRes.x = k_Noise.width;
+                    _noiseRes.y = k_Noise.height;
+                    
+                    _noiseTiling.x = width > k_Noise.width ? width / (float)k_Noise.width : k_Noise.width / (float)width;
+                    _noiseTiling.y = height > k_Noise.height ? height / (float)k_Noise.height : k_Noise.height / (float)height;
+                    return;
+                }
 				
-                _noiseResolution.x = width;
-                _noiseResolution.y = height;
+                _noiseTiling.x = 1;
+                _noiseTiling.y = 1;
+                
+                _noiseRes.x = width;
+                _noiseRes.y = height;
 				
-                k_Noise = new Texture2D(width, height, GraphicsFormat.R8_UNorm, 0);
-                //k_Noise          = new Texture2D(width, height, GraphicsFormat.R8G8B8A8_UNorm);
+                k_Noise            = new Texture2D(width, height, GraphicsFormat.R8_UNorm, 0);
                 k_Noise.name       = nameof(k_Noise);
                 k_Noise.wrapMode   = TextureWrapMode.Repeat;
-                k_Noise.filterMode = FilterMode.Bilinear;
-
+                k_Noise.filterMode = _noiseOptions._bilinear ? FilterMode.Bilinear : FilterMode.Point;
+                
                 var pixels = width * height;
                 var data   = new byte[pixels];
-                for (var n = 0; n < pixels; n++)
-                    data[n] = (byte)(Random.Range(byte.MinValue, byte.MaxValue));
+                switch (_noiseOptions._pattern)
+                {
+                    case NoiseTexture.Random:
+                    {
+                        for (var n = 0; n < pixels; n++)
+                            data[n] = (byte)(Random.Range(byte.MinValue, byte.MaxValue));
+                    } break;
+                    case NoiseTexture.LinesH:
+                    {
+                        for (var n = 0; n < pixels; n++)
+                            data[n] = n / width % 2 == 1 ? byte.MaxValue : byte.MinValue;
+                    } break;
+                    case NoiseTexture.LinesV:
+                    {
+                        for (var n = 0; n < pixels; n++)
+                            data[n] = n % width % 2 == 1 ? byte.MaxValue : byte.MinValue;
+                    } break;
+                    case NoiseTexture.Checker:
+                    {
+                        for (var n = 0; n < pixels; n++)
+                        {
+                            var x = n / width;
+                            var y = n % width;
+
+                            data[n] = (x % 2 == 0 && y % 2 == 0) || (x % 2 == 1 && y % 2 == 1) ? byte.MaxValue : byte.MinValue;
+                        }
+                    } break;
+                    default:
+                        throw new ArgumentOutOfRangeException();
+                }
 
                 k_Noise.SetPixelData(data, 0);
                 
@@ -657,36 +796,32 @@ namespace GiLight2D
             }
         }
 		
-        private void _setNoiseState(NoiseMode value)
+        private void _setNoiseState(NoiseSource value)
         {
             // hardcoded state machine
-            switch (_noiseOptions._noiseMode)
+            switch (_noiseOptions._noise)
             {
-                case NoiseMode.Dynamic:
-                case NoiseMode.Static:
+                case NoiseSource.None:
+                case NoiseSource.Texture:
                     _giMat.DisableKeyword("TEXTURE_RANDOM");
                     break;
-                case NoiseMode.Shader:
+                case NoiseSource.Shader:
                     _giMat.DisableKeyword("FRAGMENT_RANDOM");
-                    break;
-                case NoiseMode.None:
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();
             }
 
-            _noiseOptions._noiseMode = value;
+            _noiseOptions._noise = value;
 
-            switch (_noiseOptions._noiseMode)
+            switch (_noiseOptions._noise)
             {
-                case NoiseMode.Dynamic:
-                case NoiseMode.Static:
+                case NoiseSource.None:
+                case NoiseSource.Texture:
                     _giMat.EnableKeyword("TEXTURE_RANDOM");
                     break;
-                case NoiseMode.Shader:
+                case NoiseSource.Shader:
                     _giMat.EnableKeyword("FRAGMENT_RANDOM");
-                    break;
-                case NoiseMode.None:
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();

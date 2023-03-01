@@ -29,7 +29,7 @@ Shader "Hidden/GiLight2D/Gi"
             float  _Samples;
             float4 _Aspect;
             float4 _Scale;
-            float2 _NoiseOffset;
+            float4 _NoiseTilingOffset;
 
             float _Falloff;
             float _Intensity;
@@ -52,7 +52,7 @@ Shader "Hidden/GiLight2D/Gi"
                 o.uv = v.uv;
 
 #if defined(FRAGMENT_RANDOM) || defined(TEXTURE_RANDOM)
-                o.noise_uv = v.uv + _NoiseOffset;
+                o.noise_uv = v.uv * _NoiseTilingOffset.xy + _NoiseTilingOffset.zw;
 #endif
                 return o;
             }
@@ -123,7 +123,7 @@ Shader "Hidden/GiLight2D/Gi"
 #if defined(FRAGMENT_RANDOM)
                 const float rand = random(i.noise_uv);
 #elif defined(TEXTURE_RANDOM)
-                const float rand = tex2D(_NoiseTex, i.noise_uv).r * float(3.1415);
+                const float rand = tex2D(_NoiseTex, i.noise_uv).r * float(3.1415) * 2;
 #else
                 const float rand = 0;
 #endif
@@ -140,7 +140,7 @@ Shader "Hidden/GiLight2D/Gi"
                 result /= _Samples;
 
                 return float4(result, 1);
-                //return float4(result, dot(result, float3(0.299, 0.587, 0.114)));        // rec601
+                //return float4(result, dot(result, float3(0.299, 0.587, 0.114)));        // alpha as rec601 grayscale
             }
             ENDHLSL
         }
@@ -168,7 +168,7 @@ Shader "Hidden/GiLight2D/Gi"
             
             float  _Samples;
             float4 _Aspect;
-            float2 _NoiseOffset;
+            float4 _NoiseTilingOffset;
 
             float _Falloff;
             float _Intensity;
@@ -192,7 +192,7 @@ Shader "Hidden/GiLight2D/Gi"
                 o.uv = v.uv;
 
 #if defined(FRAGMENT_RANDOM) || defined(TEXTURE_RANDOM)
-                o.noise_uv = v.uv + _NoiseOffset;
+                o.noise_uv = v.uv * _NoiseTilingOffset.xy + _NoiseTilingOffset.zw;
 #endif
                 return o;
             }

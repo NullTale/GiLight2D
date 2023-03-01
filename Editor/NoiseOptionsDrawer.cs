@@ -10,14 +10,13 @@ namespace GiLight2D.Editor
         // =======================================================================
         public override float GetPropertyHeight(SerializedProperty property, GUIContent label)
         {
-            var noiseMode = property.FindPropertyRelative(nameof(GiLight2DFeature.NoiseOptions._noiseMode));
-            var linesCount = ((GiLight2DFeature.NoiseMode)noiseMode.intValue) switch
+            var noiseMode = property.FindPropertyRelative(nameof(GiLight2DFeature.NoiseOptions._noise));
+            var linesCount = ((GiLight2DFeature.NoiseSource)noiseMode.intValue) switch
             {
-                GiLight2DFeature.NoiseMode.Dynamic => 3,
-                GiLight2DFeature.NoiseMode.Static  => 2,
-                GiLight2DFeature.NoiseMode.Shader  => 1,
-                GiLight2DFeature.NoiseMode.None    => 1,
-                _                                  => throw new ArgumentOutOfRangeException()
+                GiLight2DFeature.NoiseSource.Texture => property.FindPropertyRelative(nameof(GiLight2DFeature.NoiseOptions._noise)).isExpanded ? 5 : 1,
+                GiLight2DFeature.NoiseSource.Shader => 1,
+                GiLight2DFeature.NoiseSource.None   => 1,
+                _                                   => throw new ArgumentOutOfRangeException()
             };
             
             return EditorGUIUtility.singleLineHeight * linesCount;
@@ -25,34 +24,45 @@ namespace GiLight2D.Editor
 
         public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
         {
-            var noiseMode   = property.FindPropertyRelative(nameof(GiLight2DFeature.NoiseOptions._noiseMode));
-            var noiseScale  = property.FindPropertyRelative(nameof(GiLight2DFeature.NoiseOptions._noiseScale));
-            var noisePeriod = property.FindPropertyRelative(nameof(GiLight2DFeature.NoiseOptions._noisePeriod));
+            var source   = property.FindPropertyRelative(nameof(GiLight2DFeature.NoiseOptions._noise));
+            var scale    = property.FindPropertyRelative(nameof(GiLight2DFeature.NoiseOptions._scale));
+            var velocity = property.FindPropertyRelative(nameof(GiLight2DFeature.NoiseOptions._velocity));
+            var bilinear = property.FindPropertyRelative(nameof(GiLight2DFeature.NoiseOptions._bilinear));
+            var pattern  = property.FindPropertyRelative(nameof(GiLight2DFeature.NoiseOptions._pattern));
+            var texture  = property.FindPropertyRelative(nameof(GiLight2DFeature.NoiseOptions._texture));
             
             var index = 0;
+            var mode  = (GiLight2DFeature.NoiseSource)source.intValue;
 
-            EditorGUI.PropertyField(_fieldRect(index ++), noiseMode);
+            EditorGUI.PropertyField(_fieldRect(index ++), source);
 
-            switch ((GiLight2DFeature.NoiseMode)noiseMode.intValue)
+            if (mode == GiLight2DFeature.NoiseSource.Texture)
             {
-                case GiLight2DFeature.NoiseMode.Dynamic:
+                source.isExpanded = EditorGUI.Foldout(_fieldRect(index - 1), source.isExpanded, GUIContent.none);
+                if (source.isExpanded == false)
+                    return;
+                
+                EditorGUI.indentLevel ++;
+                EditorGUI.PropertyField(_fieldRect(index ++), scale);
+                EditorGUI.PropertyField(_fieldRect(index ++), velocity);
+                EditorGUI.PropertyField(_fieldRect(index ++), pattern);
+                if (((GiLight2DFeature.NoiseTexture)pattern.intValue) == GiLight2DFeature.NoiseTexture.Texture)
                 {
-                    EditorGUI.PropertyField(_fieldRect(index ++), noiseScale);
-                    EditorGUI.PropertyField(_fieldRect(index ++), noisePeriod);
-                } break;
-                case GiLight2DFeature.NoiseMode.Static:
+                    EditorGUI.PropertyField(_fieldRect(index++), texture);
+                }
+                else
                 {
-                    EditorGUI.PropertyField(_fieldRect(index ++), noiseScale);
-                } break;
-                case GiLight2DFeature.NoiseMode.Shader:
-                case GiLight2DFeature.NoiseMode.None:
-                {
-                    // pass
-                } break;
-                default:
-                    throw new ArgumentOutOfRangeException();
+                    EditorGUI.PropertyField(_fieldRect(index ++), bilinear);
+                }
+                EditorGUI.indentLevel --;
             }
-            
+            else
+            {
+                GUI.enabled = false;
+                EditorGUI.Foldout(_fieldRect(index - 1), false, GUIContent.none);
+                GUI.enabled = true;
+            }
+
             // -----------------------------------------------------------------------
             Rect _fieldRect(int line)
             {
