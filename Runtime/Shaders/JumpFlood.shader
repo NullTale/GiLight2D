@@ -32,10 +32,11 @@ Shader "Hidden/GiLight2D/JumpFlood"
                     [unroll]
                     for (int x = -1; x <= 1; x ++)
                     {
-                        const float2 peek = tex2D(_MainTex, i.uv - float2(x, y) * _StepSize.xy).xy;
+                        const float2 peek = tex2D(_MainTex, i.uv + float2(x, y) * _StepSize).xy;
                         if (all(peek))
                         {
-                            const float dist = length((peek - i.uv ) * _Aspect);
+                            const float2 dir = (peek - i.uv ) * _Aspect;
+                            const float dist = dot(dir, dir);
                             if (dist < min_dist)
                             {
                                 min_dist = dist;

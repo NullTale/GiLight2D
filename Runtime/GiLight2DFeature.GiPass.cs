@@ -72,13 +72,16 @@ namespace GiLight2D
 #endif
                 
                 var aspectRatio = (res.x / (float)res.y);
-                var piercing = Mathf.LerpUnclamped(0f, 7f,_owner._traceOptions._piercing) / (800f / Mathf.Max(bounceRes.x, bounceRes.y));
+                var piercing    = Mathf.LerpUnclamped(0f, 7f,_owner._traceOptions._piercing) / (800f / Mathf.Max(bounceRes.x, bounceRes.y));
                 _owner._giMat.SetVector(s_AspectId, new Vector4(aspectRatio, 1f, piercing * aspectRatio / bounceRes.x, piercing / bounceRes.y));
                 _owner._giMat.SetFloat(s_SamplesId, _owner._rays);
                 if (_owner._falloff.Enabled)
                     _owner._giMat.SetFloat(s_FalloffId, _owner._falloff.Value.Value);
                 if (_owner._intensity.Enabled)
                     _owner._giMat.SetFloat(s_IntensityId, _owner._intensity.Value.Value);
+                
+                _owner._distMat.SetVector(s_AspectId, new Vector4(aspectRatio, 1f, 0, 0));
+                _owner._jfaMat.SetVector(s_AspectId, new Vector4(aspectRatio, 1f, 0, 0));
                 
                 // allocate render textures
                 desc.colorFormat = RenderTextureFormat.ARGB32;
@@ -148,13 +151,13 @@ namespace GiLight2D
                 _blit(_buffer.Handle, _jfa.From.Handle, _owner._blitMat, 3);
 				
                 // fluid fill uv coords
-                var steps    = Mathf.CeilToInt(Mathf.Log(res.x * res.y) / 2f) + 1;
-                var stepSize = new Vector2(res.x / (float)res.y, 1f);
+                var max      = Mathf.Max(res.x, res.y);
+                var steps    = Mathf.CeilToInt(Mathf.Log(max));
+                var stepSize = new Vector2(1, 1);
 
                 for (var n = 0; n < steps; n++)
                 {
                     stepSize /= 2;
-					
                     cmd.SetGlobalVector(s_StepSizeId, stepSize);
 					
                     _blit(_jfa.From.Handle, _jfa.To.Handle, _owner._jfaMat);

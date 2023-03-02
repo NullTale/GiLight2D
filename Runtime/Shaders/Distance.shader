@@ -18,12 +18,15 @@ Shader "Hidden/GiLight2D/Distance"
 
             sampler2D _MainTex;
 
-            float _Offset;
+            float  _Offset;
+            float2 _Aspect;
 
             // =======================================================================
-            float frag(const fragIn i) : SV_Target
+            float frag(fragIn i) : SV_Target
             {
-                float4 sample = tex2D(_MainTex, i.uv);
+                float2 sample = tex2D(_MainTex, i.uv);
+                i.uv.x   *= _Aspect;
+                sample.x *= _Aspect;
                 return distance(i.uv, sample.xy) + _Offset;
             }
             ENDHLSL
