@@ -168,12 +168,27 @@ namespace GiLight2D
                 _setNoiseState(value);
             }
         }
+        
         public NoiseTexture NoisePattern
         {
             get => _noiseOptions._pattern;
-            set => _noiseOptions._pattern = value;
+            set
+            {
+                _noiseOptions._pattern = value;
+                _initNoise();
+            }
         }
-        
+
+        public bool NoiseFilter
+        {
+            get => _noiseOptions._bilinear;
+            set
+            {
+                _noiseOptions._bilinear = value;
+                _initNoise();
+            }
+        }
+
         public Vector2 NoiseVelocity
         {
             get => _noiseOptions._velocity;
@@ -215,6 +230,7 @@ namespace GiLight2D
 
         private bool         _requireDraw;
         private NoiseTexture _noisePattern;
+        private bool         _noiseFilter;
 
         // =======================================================================
         public class RenderTarget
@@ -719,15 +735,16 @@ namespace GiLight2D
                     width  -= width % 4;
                 if (height > 4)
                     height -= height % 4;
-                
+
                 // rebuild only if params was changed
                 if (k_Noise != null 
                     && (width == k_Noise.width && height == k_Noise.height) 
                     && (_noiseOptions._pattern == _noisePattern) 
-                    && (_noiseOptions._pattern != NoiseTexture.Texture) && (_noiseOptions._bilinear ? FilterMode.Bilinear : FilterMode.Point) == k_Noise.filterMode)
+                    && (_noiseOptions._bilinear == _noiseFilter))
                     return;
                 
                 _noisePattern = _noiseOptions._pattern; 
+                _noiseFilter  = _noiseOptions._bilinear;
                 
                 if (_noiseOptions._pattern == NoiseTexture.Texture)
                 {

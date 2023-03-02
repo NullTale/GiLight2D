@@ -18,6 +18,7 @@ Shader "Hidden/GiLight2D/JumpFlood"
 
             sampler2D _MainTex;
             float2    _StepSize;
+            float2    _Aspect;
 
             // =======================================================================
             float2 frag(const fragIn i) : SV_Target
@@ -34,7 +35,7 @@ Shader "Hidden/GiLight2D/JumpFlood"
                         const float2 peek = tex2D(_MainTex, i.uv - float2(x, y) * _StepSize.xy).xy;
                         if (all(peek))
                         {
-                            const float dist = distance(peek, i.uv);
+                            const float dist = length((peek - i.uv ) * _Aspect);
                             if (dist < min_dist)
                             {
                                 min_dist = dist;
