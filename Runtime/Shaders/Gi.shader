@@ -61,7 +61,7 @@ Shader "Hidden/GiLight2D/Gi"
             {
                 float2 uvPos = uv;
 
-#ifdef RAY_BOUNCES
+#ifdef RAY_BOUNCES      // include ray bounce texture
                 const float4 col = tex2D(_ColorTex, uvPos).rgba;
                 if (col.a == 1)
                 {
@@ -93,7 +93,8 @@ Shader "Hidden/GiLight2D/Gi"
                     if (notUVSpace(uvPos))
                         return AMBIENT;
                 }
-#else
+                
+#else           // simple ray trace
                 
                 [unroll]
                 for (int n = 0; n < STEPS; n++)
@@ -134,13 +135,20 @@ Shader "Hidden/GiLight2D/Gi"
                     result += trace(i.uv, float2(cos(t), sin(t)) / _Aspect.xy);
                 }
 
+                result /= _Samples;
+#ifdef FALLOFF_IMPACT
+                result = saturate(result);
+#endif
+                
 #ifdef INTENSITY_IMPACT
                 result *= _Intensity;
 #endif
-                result /= _Samples;
 
                 return float4(result, 1);
+                //return float4(result, dot(result, float3(0.333, 0.334, 0.333)));
                 //return float4(result, dot(result, float3(0.299, 0.587, 0.114)));        // alpha as rec601 grayscale
+                //return float4(result, step(0.0671, dot(result, float3(0.299, 0.587, 0.114))));
+                //return float4(result, step(0.0671, dot(result, float3(0.333, 0.334, 0.333))));
             }
             ENDHLSL
         }
@@ -245,11 +253,15 @@ Shader "Hidden/GiLight2D/Gi"
                     result += trace(i.uv, float2(cos(t), sin(t)) / _Aspect.xy);
                 }
 
+                result /= _Samples;
+#ifdef FALLOFF_IMPACT
+                result = saturate(result);
+#endif
+                
 #ifdef INTENSITY_IMPACT
                 result *= _Intensity;
 #endif
                 result *= _IntensityBounce;
-                result /= _Samples;
                 
 
                 return float4(result, 1);

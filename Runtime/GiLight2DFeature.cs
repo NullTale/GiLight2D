@@ -68,7 +68,7 @@ namespace GiLight2D
         private RaySteps             _steps = RaySteps.N16;
         [SerializeField]
         [Tooltip("Distance map additional offset for each ray step.")]
-        private Optional<RangeFloat> _distOffset = new Optional<RangeFloat>(new RangeFloat(new Vector2(.0f, .1f), .0f), false);
+        private Optional<RangeFloat> _distOffset = new Optional<RangeFloat>(new RangeFloat(new Vector2(-.01f, .1f), .0f), false);
         [SerializeField]
         private NoiseOptions        _noiseOptions = new NoiseOptions();
         [SerializeField]
@@ -201,6 +201,16 @@ namespace GiLight2D
             set => _setSteps(value);
         }
         
+        public float DistOffset
+        {
+            get => _distOffset.Enabled ? _border.Value.Value : 0f;
+            set
+            {
+                _distOffset.Value.Value = value;
+                _distMat.SetFloat(s_OffsetId, _distOffset.Value.Value);
+            }
+        }
+
         public float Border
         {
             get => _border.Enabled ? _border.Value.Value : 0f;
@@ -403,7 +413,7 @@ namespace GiLight2D
         public class NoiseOptions
         {
             public NoiseSource   _noise = NoiseSource.Shader;
-            [Range(0.01f, 1f)]
+            [Range(0f, 1f)]
             public float         _scale    = 1f;
             public Vector2       _velocity = new Vector2(0f, 0f);
             public NoiseTexture  _pattern  = NoiseTexture.Random;
