@@ -232,6 +232,12 @@ namespace GiLight2D
             }
         }
 
+        public FinalBlit Output
+        {
+            get => _output._finalBlit;
+            set => _output._finalBlit = value;
+        }
+        
         public DebugOutput OutputOverride
         {
             get => _outputOverride;
@@ -500,7 +506,7 @@ namespace GiLight2D
         {
             None    = 0,
             Texture = 1,
-            Shader  = 3,
+            Shader  = 2,
         }
         
         public enum NoiseTexture
@@ -614,8 +620,18 @@ namespace GiLight2D
                 
 			    _fps.Update();
             }
-                
+            
             _setupDesc(in renderingData);
+            
+            if (_outputOverride != DebugOutput.None)
+            {
+                _giPass.renderPassEvent = RenderPassEvent.AfterRenderingPostProcessing;
+            }
+            else
+            {
+                _giPass.renderPassEvent = _event;
+            }
+            
             renderer.EnqueuePass(_giPass);
         }
 

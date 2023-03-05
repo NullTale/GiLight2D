@@ -289,26 +289,25 @@ namespace GiLight2D
                     switch (_owner._outputOverride)
                     {
                         case DebugOutput.Objects:
-                            _blit(_buffer.Handle, output, _owner._blitMat);
-                            break;
+                        {
+                            _blit(_buffer.Handle, _cameraOutput, _owner._blitMat);
+                        } break;
                         case DebugOutput.Flood:
-                            _blit(_jfa.To.Handle, output, _owner._blitMat);
-                            break;
+                        {
+                            _blit(_jfa.To.Handle, _cameraOutput, _owner._blitMat);
+                        } break;
                         case DebugOutput.Distance:
-                            _blit(_dist.Handle, output, _owner._blitMat);
-                            break;
+                        {
+                            _blit(_dist.Handle, _cameraOutput, _owner._blitMat);
+                        } break;
                         case DebugOutput.Bounce:
+                        {
+                            cmd.SetRenderTarget(_cameraOutput);
+                            cmd.ClearRenderTarget(RTClearFlags.Color, Color.clear, 1f, 0);
+                            
                             if (_owner._traceOptions._enable)
-                            {
-                                _blit(_bounceResult.Handle, output, _owner._blitMat);
-                            }
-                            else
-                            {
-                                // just black
-                                cmd.SetRenderTarget(output);
-                                cmd.ClearRenderTarget(RTClearFlags.Color, Color.clear, 1f, 0);
-                            }
-                            break;
+                                _blit(_bounceResult.Handle, _cameraOutput, _owner._blitMat);
+                        } break;
                         case DebugOutput.None:
                         default:
                             throw new ArgumentOutOfRangeException();
