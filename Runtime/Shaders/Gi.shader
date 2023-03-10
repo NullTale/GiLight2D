@@ -17,6 +17,7 @@ Shader "Hidden/GiLight2D/Gi"
             #pragma multi_compile_local INTENSITY_IMPACT _
             #pragma multi_compile_local RAY_BOUNCES _
             #pragma multi_compile_local FRAGMENT_RANDOM TEXTURE_RANDOM _
+            #pragma multi_compile_local ONE_ALPHA OBJECTS_MASK_ALPHA NORMALIZED_ALPHA SATURATION_ALPHA
 
             #pragma vertex vert
             #pragma fragment frag
@@ -61,7 +62,28 @@ Shader "Hidden/GiLight2D/Gi"
             {
                 float2 uvPos = uv;
 
-#ifdef RAY_BOUNCES      // include ray bounce texture
+                // simple ray trace
+#ifndef RAY_BOUNCES
+                [unroll]
+                for (int n = 0; n < STEPS; n++)
+                {
+                    const float4 col = tex2D(_ColorTex, uvPos).rgba;
+                    if (col.a == 1)
+                    {
+                        float3 result = col.rgb;
+#ifdef FALLOFF_IMPACT
+                        result *= falloff(uv, uvPos, _Falloff);
+#endif
+                        return result;
+                    }
+
+                    uvPos += dir * tex2D(_DistTex, uvPos).rr;
+                    if (notUVSpace(uvPos))
+                        return AMBIENT;
+                }
+                
+                // ray trace with bounce texture overlay
+#else
                 const float4 col = tex2D(_ColorTex, uvPos).rgba;
                 if (col.a == 1)
                 {
@@ -93,26 +115,7 @@ Shader "Hidden/GiLight2D/Gi"
                     if (notUVSpace(uvPos))
                         return AMBIENT;
                 }
-                
-#else           // simple ray trace
-                
-                [unroll]
-                for (int n = 0; n < STEPS; n++)
-                {
-                    const float4 col = tex2D(_ColorTex, uvPos).rgba;
-                    if (col.a == 1)
-                    {
-                        float3 result = col.rgb;
-#ifdef FALLOFF_IMPACT
-                        result *= falloff(uv, uvPos, _Falloff);
-#endif
-                        return result;
-                    }
 
-                    uvPos += dir * tex2D(_DistTex, uvPos).rr;
-                    if (notUVSpace(uvPos))
-                        return AMBIENT;
-                }
 #endif
                 return AMBIENT;
             }
@@ -121,6 +124,7 @@ Shader "Hidden/GiLight2D/Gi"
             {
                 float3 result = AMBIENT;
 
+                // take random value
 #if defined(FRAGMENT_RANDOM)
                 const float rand = random(i.noise_uv);
 #elif defined(TEXTURE_RANDOM)
@@ -129,6 +133,7 @@ Shader "Hidden/GiLight2D/Gi"
                 const float rand = 0;
 #endif
 
+                // emmit rays
                 for (float f = 0.; f < _Samples; f++)
                 {
                     const float t = (f + rand) / _Samples * float(3.1415 * 2.);
@@ -136,6 +141,8 @@ Shader "Hidden/GiLight2D/Gi"
                 }
 
                 result /= _Samples;
+
+                // color adjustments
 #ifdef FALLOFF_IMPACT
                 result = saturate(result);
 #endif
@@ -144,11 +151,24 @@ Shader "Hidden/GiLight2D/Gi"
                 result *= _Intensity;
 #endif
 
+                // alpha channel output
+#if   defined(ONE_ALPHA)
                 return float4(result, 1);
-                //return float4(result, dot(result, float3(0.333, 0.334, 0.333)));
-                //return float4(result, dot(result, float3(0.299, 0.587, 0.114)));        // alpha as rec601 grayscale
-                //return float4(result, step(0.0671, dot(result, float3(0.299, 0.587, 0.114))));
-                //return float4(result, step(0.0671, dot(result, float3(0.333, 0.334, 0.333))));
+                
+#elif defined(OBJECTS_MASK_ALPHA)
+                const float mask = tex2D(_ColorTex, i.uv).a;
+                return float4(result, mask);
+                
+#elif defined(SATURATION_ALPHA)
+                // alpha as rec601 grayscale
+                return float4(result, dot(result, float3(0.299, 0.587, 0.114)));
+                
+#elif defined(NORMALIZED_ALPHA)
+                // normalize color, alpha as opacity
+                float norm = max(result.r, max(result.g, result.b));
+                return float4(result / norm, norm);
+                
+#endif
             }
             ENDHLSL
         }

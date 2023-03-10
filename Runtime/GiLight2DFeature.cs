@@ -203,7 +203,7 @@ namespace GiLight2D
         
         public float DistOffset
         {
-            get => _distOffset.Enabled ? _border.Value.Value : 0f;
+            get => _distOffset.Enabled ? _distOffset.Value.Value : 0f;
             set
             {
                 _distOffset.Value.Value = value;
@@ -413,6 +413,8 @@ namespace GiLight2D
             public Optional<RangeFloat> _fps = new Optional<RangeFloat>(new RangeFloat(new Vector2(.0f, 120), 24.5f), false);
             [Tooltip("Global name of output texture.")]
             public string _outputGlobalTexture = "_GiTex";
+            [Tooltip("Output format.")]
+            public Alpha _alpha = Alpha.Mask;
         }
 		
         [Serializable]
@@ -549,6 +551,14 @@ namespace GiLight2D
             N12,
             N16,
         }
+
+        public enum Alpha
+        {
+            One,
+            Mask,
+            Blend,
+            Saturation
+        }
         
         // =======================================================================
         public override void Create()
@@ -675,6 +685,7 @@ namespace GiLight2D
             if (_traceOptions._enable)
                 _giMat.EnableKeyword("RAY_BOUNCES");
             _setSteps(_steps);
+            _setAlpha(_output._alpha);
         }
         
         private void _validateShaders()
@@ -915,6 +926,47 @@ namespace GiLight2D
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();
+            }
+        }
+        
+        private void _setAlpha(Alpha alpha)
+        {
+            switch (alpha)
+            {
+                case Alpha.One:
+                    _giMat.DisableKeyword("ONE_ALPHA");
+                    break;
+                case Alpha.Mask:
+                    _giMat.DisableKeyword("OBJECTS_MASK_ALPHA");
+                    break;
+                case Alpha.Blend:
+                    _giMat.DisableKeyword("NORMALIZED_ALPHA");
+                    break;
+                case Alpha.Saturation:
+                    _giMat.DisableKeyword("SATURATION_ALPHA");
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(alpha), alpha, null);
+            }
+            
+            _output._alpha = alpha;
+            
+            switch (alpha)
+            {
+                case Alpha.One:
+                    _giMat.EnableKeyword("ONE_ALPHA");
+                    break;
+                case Alpha.Mask:
+                    _giMat.EnableKeyword("OBJECTS_MASK_ALPHA");
+                    break;
+                case Alpha.Blend:
+                    _giMat.EnableKeyword("NORMALIZED_ALPHA");
+                    break;
+                case Alpha.Saturation:
+                    _giMat.EnableKeyword("SATURATION_ALPHA");
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(alpha), alpha, null);
             }
         }
         
