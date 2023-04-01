@@ -1,8 +1,10 @@
 # GiLight2D
 
-Unity Urp Render Feature for 2D Global Illumination.
+Unity Urp Render Feature for 2D Global Illumination.<br>
+WebGl demo game to play with parameters https://nulltale.itch.io/light-room.
 
 ![Demo](https://user-images.githubusercontent.com/1497430/214528293-1d6d2dbd-0a54-4816-ab32-c08d22e981f5.gif)
+
 
 ## What is it
 In practice, this is an approach to lighting with rays, in which glow and shadows are created naturally, and the number of light sources is not limited.<br>
