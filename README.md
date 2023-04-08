@@ -1,7 +1,7 @@
 # GiLight2D
 
 Unity Urp Render Feature for 2D Global Illumination.<br>
-WebGl demo game to play with parameters https://nulltale.itch.io/light-room.
+WebGl game https://nulltale.itch.io/light-room
 
 ![Demo](https://user-images.githubusercontent.com/1497430/214528293-1d6d2dbd-0a54-4816-ab32-c08d22e981f5.gif)
 
