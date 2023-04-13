@@ -46,14 +46,14 @@ namespace GiLight2D
         [SerializeField]
         private RenderPassEvent     _event = RenderPassEvent.BeforeRenderingOpaques;
         [SerializeField]
-        [Tooltip("Which objects should be rendered as Gi.")]
+        [Tooltip("Which objects should be rendered as Gi")]
         private LayerMask           _mask = new LayerMask() { value = -1 };
         [SerializeField]
-        [Tooltip("Enable depth stencil buffer for Gi objects rendering. Allows mask interaction and z culling.")]
+        [Tooltip("Enable depth stencil buffer for Gi objects rendering. Allows mask interaction and z culling")]
         private bool                _depthStencil = true;
 		
         [SerializeField]
-        [Tooltip("How many rays to emit from each pixel.")]
+        [Tooltip("How many rays to emit from each pixel")]
         private int                 _rays = 100;
         [SerializeField]
         public TraceOptions         _traceOptions = new TraceOptions();
@@ -67,12 +67,12 @@ namespace GiLight2D
         [Tooltip("Maximum number of ray steps")]
         private RaySteps             _steps = RaySteps.N16;
         [SerializeField]
-        [Tooltip("Distance map additional offset for each ray step.")]
+        [Tooltip("Distance map additional offset for each ray step")]
         private Optional<RangeFloat> _distOffset = new Optional<RangeFloat>(new RangeFloat(new Vector2(-.01f, .1f), .0f), false);
         [SerializeField]
         private NoiseOptions        _noiseOptions = new NoiseOptions();
         [SerializeField]
-        [Tooltip("Additional orthographic camera space, to make objects visible outside of the camera frame.")]
+        [Tooltip("Additional orthographic camera space, to make objects visible outside of the camera frame")]
         private Optional<RangeFloat> _border = new Optional<RangeFloat>(new RangeFloat(new Vector2(.0f, 3f), 0f), false);
         [SerializeField]
         private ScaleModeOptions     _scaleMode = new ScaleModeOptions();
@@ -83,11 +83,11 @@ namespace GiLight2D
         private BlurOptions          _blurOptions = new BlurOptions();
         [Header("Debug")]
         [SerializeField]
-        [Tooltip("Override final output for debug purposes.")]
+        [Tooltip("Override final output for debug purposes")]
         private DebugOutput          _outputOverride = DebugOutput.None;
 		
         [SerializeField]
-        [Tooltip("Run render feature in scene view project window.")]
+        [Tooltip("Run render feature in scene view project window")]
         private bool                 _runInSceneView;
 		
 		
@@ -383,7 +383,7 @@ namespace GiLight2D
         }
 
         [Serializable]
-        public class BlurOptions
+        internal class BlurOptions
         {
             public bool     _enable;
             [Tooltip("Blur type")]
@@ -405,28 +405,28 @@ namespace GiLight2D
         }
 
         [Serializable]
-        public class OutputOptions
+        internal class OutputOptions
         {
-            [Tooltip("Where to store Gi result. If the final result is a camera, then could be applied a post processing.")]
+            [Tooltip("Where to store Gi result. If the final result is a camera, then could be applied a post processing")]
             public FinalBlit _finalBlit = FinalBlit.Camera;
             [Tooltip("Frame rate of gi texture")]
             public Optional<RangeFloat> _fps = new Optional<RangeFloat>(new RangeFloat(new Vector2(.0f, 120), 24.5f), false);
-            [Tooltip("Global name of output texture.")]
+            [Tooltip("Global name of output texture")]
             public string _outputGlobalTexture = "_GiTex";
-            [Tooltip("Output format.")]
+            [Tooltip("Output format")]
             public Alpha _alpha = Alpha.Mask;
         }
 		
         [Serializable]
-        public class NoiseOptions
+        internal class NoiseOptions
         {
             public NoiseSource   _noise = NoiseSource.Shader;
             [Range(0f, 1f)]
             public float         _scale    = 1f;
-            public Vector2       _velocity = new Vector2(0f, 0f);
-            public NoiseTexture  _pattern  = NoiseTexture.Random;
-            public bool          _bilinear = true;
-            public Texture2D     _texture;
+            public Vector2      _velocity = new Vector2(0f, 0f);
+            public NoiseTexture _pattern  = NoiseTexture.Random;
+            public bool         _bilinear = true;
+            public Texture2D    _texture;
         }
         
         [Serializable]

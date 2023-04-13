@@ -4,7 +4,7 @@ using UnityEngine;
 namespace GiLight2D
 {
     [Serializable]
-    public sealed class Optional<T>
+    internal sealed class Optional<T>
     {
         [SerializeField]
         internal bool enabled;
