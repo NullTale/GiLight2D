@@ -427,6 +427,8 @@ namespace GiLight2D
             public NoiseTexture _pattern  = NoiseTexture.Random;
             public bool         _bilinear = true;
             public Texture2D    _texture;
+            [Tooltip("Noise would be scaled and translated relative to the camera world position and ortho size")]
+            public Optional<float>   _orthoRelative;
         }
         
         [Serializable]

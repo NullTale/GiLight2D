@@ -193,7 +193,27 @@ namespace GiLight2D
                             yOffset = -(Time.unscaledTime % yPeriod / yPeriod);
                         }
                         
-                        _owner._giMat.SetVector(s_NoiseTilingOffsetId, new Vector4(_owner._noiseTiling.x, _owner._noiseTiling.y, xOffset, yOffset));
+                        var xTiling = _owner._noiseTiling.x;
+                        var yTiling = _owner._noiseTiling.y;
+                        if (_owner._noiseOptions._orthoRelative.Enabled)
+                        {
+                            ref var cameraData = ref renderingData.cameraData;
+                            var     camera     = cameraData.camera;
+                            var     aspect     = camera.aspect;
+                            var     camHeight  = camera.orthographicSize * 2f;
+                            var     camWidth   = camera.aspect * camHeight;
+                            
+                            var scaleX = camWidth / (_owner._noiseOptions._orthoRelative.Value * 2f * aspect);
+                            var scaleY = camHeight / (_owner._noiseOptions._orthoRelative.Value * 2f);
+                            
+                            xOffset += ((camera.transform.position.x % camWidth) / camWidth) * scaleX - (scaleX - 1f) * camWidth * .5f / camWidth;
+                            yOffset += ((camera.transform.position.y % camHeight) / camHeight) * scaleY - (scaleY - 1f) * camHeight * .5f / camHeight;
+                            
+                            xTiling *= scaleX;
+                            yTiling *= scaleY;
+                        }
+                        
+                        _owner._giMat.SetVector(s_NoiseTilingOffsetId, new Vector4(xTiling, yTiling, xOffset, yOffset));
                         _owner._giMat.SetTexture(s_NoiseTexId, k_Noise);
                     } break;
                     case NoiseSource.Shader:

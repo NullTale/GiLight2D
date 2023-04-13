@@ -13,7 +13,7 @@ namespace GiLight2D.Editor
             var noiseMode = property.FindPropertyRelative(nameof(GiLight2DFeature.NoiseOptions._noise));
             var linesCount = ((GiLight2DFeature.NoiseSource)noiseMode.intValue) switch
             {
-                GiLight2DFeature.NoiseSource.Texture => property.FindPropertyRelative(nameof(GiLight2DFeature.NoiseOptions._noise)).isExpanded ? 5 : 1,
+                GiLight2DFeature.NoiseSource.Texture => property.FindPropertyRelative(nameof(GiLight2DFeature.NoiseOptions._noise)).isExpanded ? 6 : 1,
                 GiLight2DFeature.NoiseSource.Shader => 1,
                 GiLight2DFeature.NoiseSource.None   => 1,
                 _                                   => throw new ArgumentOutOfRangeException()
@@ -24,12 +24,13 @@ namespace GiLight2D.Editor
 
         public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
         {
-            var source   = property.FindPropertyRelative(nameof(GiLight2DFeature.NoiseOptions._noise));
-            var scale    = property.FindPropertyRelative(nameof(GiLight2DFeature.NoiseOptions._scale));
-            var velocity = property.FindPropertyRelative(nameof(GiLight2DFeature.NoiseOptions._velocity));
-            var bilinear = property.FindPropertyRelative(nameof(GiLight2DFeature.NoiseOptions._bilinear));
-            var pattern  = property.FindPropertyRelative(nameof(GiLight2DFeature.NoiseOptions._pattern));
-            var texture  = property.FindPropertyRelative(nameof(GiLight2DFeature.NoiseOptions._texture));
+            var source        = property.FindPropertyRelative(nameof(GiLight2DFeature.NoiseOptions._noise));
+            var scale         = property.FindPropertyRelative(nameof(GiLight2DFeature.NoiseOptions._scale));
+            var velocity      = property.FindPropertyRelative(nameof(GiLight2DFeature.NoiseOptions._velocity));
+            var bilinear      = property.FindPropertyRelative(nameof(GiLight2DFeature.NoiseOptions._bilinear));
+            var orthoRelative = property.FindPropertyRelative(nameof(GiLight2DFeature.NoiseOptions._orthoRelative));
+            var pattern       = property.FindPropertyRelative(nameof(GiLight2DFeature.NoiseOptions._pattern));
+            var texture       = property.FindPropertyRelative(nameof(GiLight2DFeature.NoiseOptions._texture));
             
             var index = 0;
             var mode  = (GiLight2DFeature.NoiseSource)source.intValue;
@@ -54,6 +55,8 @@ namespace GiLight2D.Editor
                 {
                     EditorGUI.PropertyField(_fieldRect(index ++), bilinear);
                 }
+                
+                EditorGUI.PropertyField(_fieldRect(index ++), orthoRelative);
                 EditorGUI.indentLevel --;
             }
             else
