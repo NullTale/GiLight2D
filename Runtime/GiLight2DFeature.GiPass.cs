@@ -52,6 +52,10 @@ namespace GiLight2D
                 ref var bounceRes  = ref _owner._rtBounceRes;
                 ref var desc = ref _owner._rtDesc;
                 var     cmd  = CommandBufferPool.Get(nameof(GiLight2DFeature));
+
+                ref var cameraData = ref renderingData.cameraData;
+                var     camera     = cameraData.camera;
+
                 if (_owner.ForceTextureOutput)
                 {
                     _output.Get(cmd, desc);
@@ -71,17 +75,21 @@ namespace GiLight2D
                 _cameraOutput = renderingData.cameraData.renderer.cameraColorTargetHandle;
 #endif
                 
-                var aspectRatio = (res.x / (float)res.y);
+                var aspectRatioX = (res.x / (float)res.y);
+                var aspectRatioY = 1f;
+				if (_owner._aspect < 0f)
+					aspectRatioX *= 1f - _owner._aspect;
+				if (_owner._aspect > 0f)
+					aspectRatioY *= 1f + _owner._aspect; 
+
                 var piercing    = Mathf.LerpUnclamped(0f, 7f,_owner._traceOptions._piercing) / (800f / Mathf.Max(bounceRes.x, bounceRes.y));
-                _owner._giMat.SetVector(s_AspectId, new Vector4(aspectRatio, 1f, piercing * aspectRatio / bounceRes.x, piercing / bounceRes.y));
+                _owner._giMat.SetVector(s_AspectId, new Vector4(aspectRatioX, aspectRatioY, piercing * aspectRatioX / bounceRes.x, piercing / bounceRes.y));
                 _owner._giMat.SetFloat(s_SamplesId, _owner._rays);
-                if (_owner._falloff.Enabled)
-                    _owner._giMat.SetFloat(s_FalloffId, _owner._falloff.Value.Value);
-                if (_owner._intensity.Enabled)
-                    _owner._giMat.SetFloat(s_IntensityId, _owner._intensity.Value.Value);
+                _owner._giMat.SetFloat(s_IntensityId, _owner._intensity.Value);
+                _owner._giMat.SetFloat(s_PowerId, _owner._distance / (camera.orthographicSize * 2f));
                 
-                _owner._distMat.SetVector(s_AspectId, new Vector4(aspectRatio, 1f, 0, 0));
-                _owner._jfaMat.SetVector(s_AspectId, new Vector4(aspectRatio, 1f, 0, 0));
+                _owner._distMat.SetVector(s_AspectId, new Vector4(aspectRatioX, aspectRatioY, 0, 0));
+                _owner._jfaMat.SetVector(s_AspectId, new Vector4(aspectRatioX, aspectRatioY, 0, 0));
                 
                 // allocate render textures
                 desc.colorFormat = RenderTextureFormat.ARGB32;
@@ -110,8 +118,6 @@ namespace GiLight2D
                 {
                     // expand camera ortho projection if has Gi border, drawback is that we need to do cull results second time
                     // it is not necessary if we want to draw with separate camera
-                    ref var cameraData = ref renderingData.cameraData;
-                    var     camera     = cameraData.camera;
                     var     aspect     = camera.aspect;
                     var     ySize      = camera.orthographicSize + _owner._border.Value.Value;
                     var     xSize      = ySize * aspect;
@@ -142,7 +148,6 @@ namespace GiLight2D
 				
                 if (_owner.HasGiBorder)
                 {
-                    ref var cameraData = ref renderingData.cameraData;
                     RenderingUtils.SetViewAndProjectionMatrices(cmd, cameraData.GetViewMatrix(), cameraData.GetGPUProjectionMatrix(), false);
                 }
 				
@@ -197,8 +202,6 @@ namespace GiLight2D
                         var yTiling = _owner._noiseTiling.y;
                         if (_owner._noiseOptions._orthoRelative.Enabled)
                         {
-                            ref var cameraData = ref renderingData.cameraData;
-                            var     camera     = cameraData.camera;
                             var     aspect     = camera.aspect;
                             var     camHeight  = camera.orthographicSize * 2f;
                             var     camWidth   = camera.aspect * camHeight;

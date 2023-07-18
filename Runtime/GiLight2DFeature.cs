@@ -21,7 +21,6 @@ namespace GiLight2D
         private static readonly int s_NoiseTilingOffsetId = Shader.PropertyToID("_NoiseTilingOffset");
         private static readonly int s_NoiseTexId          = Shader.PropertyToID("_NoiseTex");
         private static readonly int s_UvScaleId           = Shader.PropertyToID("_UvScale");
-        private static readonly int s_FalloffId           = Shader.PropertyToID("_Falloff");
         private static readonly int s_IntensityId         = Shader.PropertyToID("_Intensity");
         private static readonly int s_IntensityBounceId   = Shader.PropertyToID("_IntensityBounce");
         private static readonly int s_SamplesId           = Shader.PropertyToID("_Samples");
@@ -30,6 +29,7 @@ namespace GiLight2D
         private static readonly int s_BounceTexId         = Shader.PropertyToID("_BounceTex");
         private static readonly int s_DistTexId           = Shader.PropertyToID("_DistTex");
         private static readonly int s_AspectId            = Shader.PropertyToID("_Aspect");
+        private static readonly int s_PowerId             = Shader.PropertyToID("_Power");
         private static readonly int s_StepSizeId          = Shader.PropertyToID("_StepSize");
         private static readonly int s_ScaleId             = Shader.PropertyToID("_Scale");
         private static readonly int s_StepId              = Shader.PropertyToID("_Step");
@@ -58,11 +58,14 @@ namespace GiLight2D
         [SerializeField]
         public TraceOptions         _traceOptions = new TraceOptions();
         [SerializeField]
-        [Tooltip("Light falloff to control propagation curve")]
-        private Optional<RangeFloat> _falloff = new Optional<RangeFloat>(new RangeFloat(new Vector2(.01f, 1f), 1f), false);
-        [SerializeField]
         [Tooltip("Final light intensity, basically color multiplier")]
-        private Optional<RangeFloat> _intensity = new Optional<RangeFloat>(new RangeFloat(new Vector2(.0f, 3f), 1f), false);
+        private RangeFloat 		    _intensity = new RangeFloat(new Vector2(.0f, 3f), 1f);
+        [SerializeField]
+        [Tooltip("Max ray distance in world space (relative to full alpha)")]
+        private float               _distance = 7;
+        [SerializeField]
+        [Tooltip("Rays aspect")]
+        private float 			    _aspect = 0;
         [SerializeField]
         [Tooltip("Maximum number of ray steps")]
         private RaySteps             _steps = RaySteps.N16;
@@ -113,8 +116,9 @@ namespace GiLight2D
         private bool HasGiBorder        => _border.Enabled && _border.Value.Value > 0f;
 		
         public int        Rays       { get => _rays;                  set => _rays = value; }
-        public float      Falloff    { get => _falloff.Value.Value;   set => _falloff.Value.Value = value; }
-        public float      Intensity  { get => _intensity.Value.Value; set => _intensity.Value.Value = value; }
+        public float      Intensity  { get => _intensity.Value;       set => _intensity.Value = value; }
+        public float      Aspect     { get => _aspect;                set => _aspect = value; }
+        public float      Distance   { get => _distance;              set => _distance = value; }
         public float      GiScale    { get => _scaleMode._ratio;      set => _scaleMode._ratio = value; }
         public bool       Blur       { get => _blurOptions._enable;   set => _blurOptions._enable = value; }
         public Vector2Int GiTexSize => _rtRes;
@@ -428,7 +432,7 @@ namespace GiLight2D
             public bool         _bilinear = true;
             public Texture2D    _texture;
             [Tooltip("Noise would be scaled and translated relative to the camera world position and ortho size")]
-            public Optional<float>   _orthoRelative;
+            public Optional<float> _orthoRelative;
         }
         
         [Serializable]
@@ -680,10 +684,6 @@ namespace GiLight2D
             }
                 
             _giMat    = new Material(_shaders._gi);
-            if (_falloff.enabled)
-                _giMat.EnableKeyword("FALLOFF_IMPACT");
-            if (_intensity.enabled)
-                _giMat.EnableKeyword("INTENSITY_IMPACT");
             if (_traceOptions._enable)
                 _giMat.EnableKeyword("RAY_BOUNCES");
             _setSteps(_steps);

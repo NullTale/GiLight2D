@@ -40,9 +40,9 @@ fragIn vert_default(vertIn v)
     return o;
 }
 
-float falloff(const in float2 uv_a, const in float2 uv_b, const in float factor)
+float falloff(const in float2 dist, const in float factor)
 {
-    return (1 + distance(uv_a, uv_b)) / factor;
+    return 1 - clamp(length(dist) / factor, 0, 1);
 }
 
 bool notUVSpace(const in float2 uv)

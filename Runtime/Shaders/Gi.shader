@@ -13,8 +13,6 @@ Shader "Hidden/GiLight2D/Gi"
             HLSLPROGRAM
             #include "Utils.hlsl"
             
-            #pragma multi_compile_local FALLOFF_IMPACT _
-            #pragma multi_compile_local INTENSITY_IMPACT _
             #pragma multi_compile_local RAY_BOUNCES _
             #pragma multi_compile_local FRAGMENT_RANDOM TEXTURE_RANDOM _
             #pragma multi_compile_local ONE_ALPHA OBJECTS_MASK_ALPHA NORMALIZED_ALPHA SATURATION_ALPHA
@@ -32,8 +30,8 @@ Shader "Hidden/GiLight2D/Gi"
             float4 _Scale;
             float4 _NoiseTilingOffset;
 
-            float _Falloff;
             float _Intensity;
+            float _Power;
 
             // =======================================================================
             struct fragIn_gi
@@ -62,37 +60,11 @@ Shader "Hidden/GiLight2D/Gi"
             {
                 float2 uvPos = uv;
 
-                // simple ray trace
 #ifndef RAY_BOUNCES
-                [unroll]
-                for (int n = 0; n < STEPS; n++)
-                {
-                    const float4 col = tex2D(_ColorTex, uvPos).rgba;
-                    if (col.a == 1)
-                    {
-                        float3 result = col.rgb;
-#ifdef FALLOFF_IMPACT
-                        result *= falloff(uv, uvPos, _Falloff);
-#endif
-                        return result;
-                    }
-
-                    uvPos += dir * tex2D(_DistTex, uvPos).rr;
-                    if (notUVSpace(uvPos))
-                        return AMBIENT;
-                }
-                
-                // ray trace with bounce texture overlay
-#else
-                const float4 col = tex2D(_ColorTex, uvPos).rgba;
-                if (col.a == 1)
-                {
-                    float3 result = col.rgb;
-#ifdef FALLOFF_IMPACT
-                    result *= falloff(uv, uvPos, _Falloff);
-#endif
-                    return result;
-                }
+                // simple ray trace
+                const float4 col = tex2D(_ColorTex, uv).rgba;
+                if (col.a > 0)
+                    return col.rgb / col.a;
                 
                 uvPos += dir * tex2D(_DistTex, uvPos).rr;
                 if (notUVSpace(uvPos))
@@ -102,14 +74,31 @@ Shader "Hidden/GiLight2D/Gi"
                 for (int n = 1; n < STEPS; n++)
                 {
                     const float4 col = tex2D(_ColorTex, uvPos).rgba;
-                    if (col.a == 1)
-                    {
-                        float3 result = col.rgb + tex2D(_BounceTex, uvPos).rgb;
-#ifdef FALLOFF_IMPACT
-                        result *= falloff(uv, uvPos, _Falloff);
-#endif
-                        return result;
-                    }
+                    if (col.a > 0)
+                        return col.rgb * falloff((uv - uvPos) * _Aspect.xy, _Power * col.a);
+
+                    uvPos += dir * tex2D(_DistTex, uvPos).rr;
+                    if (notUVSpace(uvPos))
+                        return AMBIENT;
+                }
+                
+#else
+                // ray trace with bounce texture overlay
+                const float4 col = tex2D(_ColorTex, uvPos).rgba;
+                if (col.a > 0)
+                    return col.rgb / col.a;
+                
+                uvPos += dir * tex2D(_DistTex, uvPos).rr;
+                if (notUVSpace(uvPos))
+                    return AMBIENT;
+                
+                [unroll]
+                for (int n = 1; n < STEPS; n++)
+                {
+                    const float4 col = tex2D(_ColorTex, uvPos).rgba + float4(tex2D(_BounceTex, uvPos).rgb, 0);
+                    
+                    if (col.a > 0)
+                        return col.rgb * falloff((uv - uvPos) * _Aspect.xy, _Power * col.a);
 
                     uvPos += dir * tex2D(_DistTex, uvPos).rr;
                     if (notUVSpace(uvPos))
@@ -143,13 +132,7 @@ Shader "Hidden/GiLight2D/Gi"
                 result /= _Samples;
 
                 // color adjustments
-#ifdef FALLOFF_IMPACT
-                result = saturate(result);
-#endif
-                
-#ifdef INTENSITY_IMPACT
                 result *= _Intensity;
-#endif
 
                 // alpha channel output
 #if   defined(ONE_ALPHA)
@@ -198,8 +181,8 @@ Shader "Hidden/GiLight2D/Gi"
             float4 _Aspect;
             float4 _NoiseTilingOffset;
 
-            float _Falloff;
             float _Intensity;
+            float _Power;
             float _IntensityBounce;
 
             // =======================================================================
@@ -228,7 +211,7 @@ Shader "Hidden/GiLight2D/Gi"
             float3 trace(in const float2 uv, in const float2 dir)
             {
                 float2 uvPos = uv + dir * _Aspect.zw;
-                if (tex2D(_AlphaTex, uvPos).r == 1)
+                if (tex2D(_AlphaTex, uvPos).r > 0)
                     return AMBIENT;
 
                 [unroll]
@@ -237,17 +220,10 @@ Shader "Hidden/GiLight2D/Gi"
                     uvPos += dir * tex2D(_DistTex, uvPos).rr;
                     if (uvPos.x < 0 || uvPos.y < 0 || uvPos.x > 1 || uvPos.y > 1)
                         return AMBIENT;
-                    
-                    if (tex2D(_AlphaTex, uvPos).r == 1)
-                    {
-                        float3 result = _ColorTex.Sample(linear_clamp_sampler, uvPos).rgb;
 
-#ifdef FALLOFF_IMPACT
-                        result *= falloff(uv, uvPos, _Falloff);
-#endif
-
-                        return result;
-                    }
+                    float alpha = tex2D(_AlphaTex, uvPos).r;
+                    if (alpha > 0)
+                        return _ColorTex.Sample(linear_clamp_sampler, uvPos).rgb * falloff((uv - uvPos) * _Aspect.xy, _Power * alpha);
                 }
 
                 return AMBIENT;
