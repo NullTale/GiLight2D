@@ -5,7 +5,7 @@ WebGl https://nulltale.itch.io/light-room
 
 ![Demo](https://user-images.githubusercontent.com/1497430/214528293-1d6d2dbd-0a54-4816-ab32-c08d22e981f5.gif)
 
-Also asset expands applications of raitracing for visual effects creation
+Also asset expands applications of raytracing for visual effects creation
 
 ![Gif](https://github.com/NullTale/GiLight2D/assets/1497430/d5eb3708-93e0-462a-829e-6931863ad2ad)
 
