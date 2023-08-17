@@ -1,11 +1,8 @@
 # GiLight2D
 
 Unity Urp Render Feature for 2D Global Illumination.<br>
-WebGl https://nulltale.itch.io/light-room
-
-![Demo](https://user-images.githubusercontent.com/1497430/214528293-1d6d2dbd-0a54-4816-ab32-c08d22e981f5.gif)
-
-Also asset expands applications of raytracing for visual effects creation
+GiLight can be used both for conventional lighting and to create stylized visual effects ✨<br>
+WebGl https://nulltale.itch.io/light-room<br>
 
 ![Gif](https://github.com/NullTale/GiLight2D/assets/1497430/d5eb3708-93e0-462a-829e-6931863ad2ad)
 
@@ -17,11 +14,17 @@ Implemented quite enough options, tested with unity 2021 and 2022 versions.<br>
 
 #### Some of the options
 * fixed resolution for pixel art.
-* render to texture to use it later in the shader or in the camera to apply built-in post effects.
+* control via post process volume.
+* render texture output.
 * padding the screen borders to display objects outside the camera.
 * different noise settings and resolution.
 * etc.
 
+
+## Volume control
+Various lighting configurations can be mixed to create certain kinds of scene effects.
+
+![Gif](https://github.com/NullTale/GiLight2D/assets/1497430/1f9ccdcc-5e28-4f07-bd54-d4e3ceff2d09)
 
 ## Installation and use
 Install via PackageManager `https://github.com/NullTale/GiLight2D.git`
