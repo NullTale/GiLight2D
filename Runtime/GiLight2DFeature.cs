@@ -121,6 +121,7 @@ namespace GiLight2D
         public float      Distance   { get => _distance;              set => _distance = value; }
         public float      GiScale    { get => _scaleMode._ratio;      set => _scaleMode._ratio = value; }
         public bool       Blur       { get => _blurOptions._enable;   set => _blurOptions._enable = value; }
+        public float      BlurStep   { get => _blurOptions._step.Value.Value;   set => _blurOptions._step.Value.Value = value; }
         public Vector2Int GiTexSize => _rtRes;
         public Vector2Int NoiseTexSize => _noiseRes;
 
@@ -393,7 +394,7 @@ namespace GiLight2D
             [Tooltip("Blur type")]
             public BlurMode _mode = BlurMode.Box;
             [Tooltip("Blur distance in uv coords, if disabled step will be set to one pixel per sample")]
-            public Optional<RangeFloat> _step = new Optional<RangeFloat>(new RangeFloat(new Vector2(0f, 0.01f), 0.003f), true);
+            public Optional<RangeFloat> _step = new Optional<RangeFloat>(new RangeFloat(new Vector2(0f, 0.00f), 0.003f), true);
         }
         
         [Serializable]
@@ -401,7 +402,7 @@ namespace GiLight2D
         {
             [Tooltip("Resolution scale of gi texture.")]
             public ScaleMode _scaleMode;
-            [Tooltip("Scale ration relative main resolution")]
+            [Tooltip("Scale ratio relative to main resolution")]
             [Range(0.1f, 2f)]
             public float     _ratio  = 1f;
             [Tooltip("Fixed height of gi texture, width will be set relative to the aspect")]
@@ -610,7 +611,6 @@ namespace GiLight2D
                 Create();
             }
 #endif
-            
             if (_runInSceneView)
             {
                 // in game or scene view
@@ -624,6 +624,8 @@ namespace GiLight2D
                 if (renderingData.cameraData.cameraType != CameraType.Game)
                     return;
             }
+            
+            _applyFromPostProcess();
             
             _requireDraw = true;
             
@@ -649,6 +651,68 @@ namespace GiLight2D
             }
             
             renderer.EnqueuePass(_giPass);
+        }
+
+        private void _applyFromPostProcess()
+        {
+            var settings = VolumeManager.instance.stack.GetComponent<GiLightSettings>();
+            if (settings.active == false)
+                return;
+            
+            if (settings.m_Rays.overrideState)
+                Rays = settings.m_Rays.value;
+            
+            if (settings.m_Intensity.overrideState)
+                Intensity = settings.m_Intensity.value;
+            
+            if (settings.m_Distance.overrideState)
+                Distance = settings.m_Distance.value;
+            
+            if (settings.m_Aspect.overrideState)
+                Aspect = settings.m_Aspect.value;
+        
+            if (settings.m_Steps.overrideState)
+                Steps = settings.m_Steps.value switch
+                {
+                    1 => RaySteps.N4,
+                    2 => RaySteps.N6,
+                    3 => RaySteps.N8,
+                    4 => RaySteps.N12,
+                    5 => RaySteps.N16,
+                    _ => throw new ArgumentOutOfRangeException()
+                };
+        
+            if (settings.m_Scale.overrideState)
+                GiScale = settings.m_Scale.value;
+            
+            if (settings.m_NoiseTex.overrideState)
+            {
+                if (settings.m_NoiseTex.value == GiLightSettings.NoiseTexture.None)
+                {
+                    Noise = NoiseSource.None;
+                }
+                else
+                {
+                    Noise = NoiseSource.Texture;
+                    NoisePattern = settings.m_NoiseTex.value switch
+                    {
+                        GiLightSettings.NoiseTexture.Random  => NoiseTexture.Random,
+                        GiLightSettings.NoiseTexture.LinesH  => NoiseTexture.LinesH,
+                        GiLightSettings.NoiseTexture.LinesV  => NoiseTexture.LinesV,
+                        GiLightSettings.NoiseTexture.Checker => NoiseTexture.Checker,
+                        _                                    => throw new ArgumentOutOfRangeException()
+                    };
+                }
+            }
+        
+            if (settings.m_NoiseVel.overrideState)
+                NoiseVelocity = settings.m_NoiseVel.value;
+        
+            if (settings.m_NoiseScale.overrideState)
+                NoiseScale = settings.m_NoiseScale.value;
+            
+            if (settings.m_Blur.overrideState)
+                BlurStep = Mathf.LerpUnclamped(_blurOptions._step.value.Range.x, _blurOptions._step.value.Range.y,  settings.m_Blur.value);
         }
 
         // =======================================================================
@@ -724,8 +788,8 @@ namespace GiLight2D
                 ),
 
                 ScaleMode.Fixed => new Vector2Int(
-                    Mathf.FloorToInt((camDesc.width / (float)camDesc.height) * _scaleMode._height),
-                    _scaleMode._height
+                    Mathf.FloorToInt((camDesc.width / (float)camDesc.height) * _scaleMode._height * _scaleMode._ratio),
+                    Mathf.FloorToInt((_scaleMode._height * _scaleMode._ratio))
                 ),
 
                 _ => throw new ArgumentOutOfRangeException()
