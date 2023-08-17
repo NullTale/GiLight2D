@@ -1,8 +1,8 @@
 # GiLight2D
 
 Unity Urp Render Feature for 2D Global Illumination.<br>
+GiLight can be used both for conventional lighting and to create stylized visual effects ✨<br>
 WebGl https://nulltale.itch.io/light-room<br>
-GiLight expands applications of raytracing for visual effects creation ✨
 
 ![Gif](https://github.com/NullTale/GiLight2D/assets/1497430/d5eb3708-93e0-462a-829e-6931863ad2ad)
 
