@@ -14,7 +14,7 @@ namespace GiLight2D
         public FloatParameter        m_Aspect     = new FloatParameter(0);
         public ClampedIntParameter   m_Steps      = new ClampedIntParameter(5, 1, 5);
         public ClampedFloatParameter m_Scale      = new ClampedFloatParameter(1, 0, 2);
-        public NoiseTextureParameter m_NoiseTex   = new NoiseTextureParameter();
+        public NoiseTextureParameter m_NoiseTex   = new NoiseTextureParameter(NoiseTexture.Random);
         public Vector2Parameter      m_NoiseVel   = new Vector2Parameter(new Vector2(0, 0));
         public ClampedFloatParameter m_NoiseScale = new ClampedFloatParameter(0, 0, 1);
         public ClampedFloatParameter m_Blur       = new ClampedFloatParameter(0, 0, 1);
@@ -23,6 +23,7 @@ namespace GiLight2D
         [Serializable]
         public sealed class NoiseTextureParameter : VolumeParameter<NoiseTexture>
         {
+            public NoiseTextureParameter(NoiseTexture value, bool overrideState = false) : base(value, overrideState) { }
         }
 
         public enum NoiseTexture
