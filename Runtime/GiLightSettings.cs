@@ -5,7 +5,7 @@ using UnityEngine.Rendering.Universal;
 
 namespace GiLight2D
 {
-    [Serializable, VolumeComponentMenu("NullTale/GiLight")]
+    [Serializable, VolumeComponentMenu("GiLight")]
     public sealed class GiLightSettings : VolumeComponent, IPostProcessComponent
     {
         public ClampedIntParameter   m_Rays       = new ClampedIntParameter(33, 1, 120);
