@@ -296,7 +296,7 @@ namespace GiLight2D
                 
                 _pp.Setup(cmd, in desc, output, passes, _owner._giMat);
                 
-                if (_owner._blurOptions._enable)
+                if (_hasBlurImpact())
                 {
                     var step = _owner._blurOptions._step.Enabled ?
                         new Vector4(_owner._blurOptions._step.Value.Value, _owner._blurOptions._step.Value.Value, 0, 0) :
@@ -349,12 +349,17 @@ namespace GiLight2D
                 {
                     var count = 0;
                     
-                    if (_owner._blurOptions._enable)
+                    if (_hasBlurImpact())
                         count ++;
 
                     return count;
                 }
                 
+                bool _hasBlurImpact()
+                {
+                    return _owner._blurOptions._enable && ((_owner._blurOptions._step.Enabled && _owner._blurOptions._step.Value.Value > 0f) || _owner._blurOptions._step.Enabled == false);
+                }
+
                 void _execute()
                 {
                     context.ExecuteCommandBuffer(cmd);
