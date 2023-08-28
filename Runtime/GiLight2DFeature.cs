@@ -5,6 +5,7 @@ using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
+using UnityEngine.Serialization;
 using Random = UnityEngine.Random;
 
 namespace GiLight2D
@@ -48,8 +49,12 @@ namespace GiLight2D
         [SerializeField]
         [Tooltip("Which objects should be rendered as Gi")]
         private LayerMask           _mask = new LayerMask() { value = -1 };
+        
         [SerializeField]
-        [Tooltip("Enable depth stencil buffer for Gi objects rendering. Allows mask interaction and z culling")]
+        [Tooltip("Which volume settings to use")]
+        private Optional<LayerMask> _volume = new Optional<LayerMask>(false);
+        [SerializeField]
+        [Tooltip("Attach depth stencil buffer for Gi rendering. Allows stencil mask interaction and z culling")]
         private bool                _depthStencil = true;
 		
         [SerializeField]
@@ -104,6 +109,8 @@ namespace GiLight2D
         private Material _jfaMat;
         private Material _distMat;
         private Material _blurMat;
+        
+        private  VolumeStack _stack;
 		
         private RenderTextureDescriptor _rtDesc      = new RenderTextureDescriptor(0, 0, GraphicsFormat.None, 0, 0);
         private Vector2Int              _rtRes       = Vector2Int.zero;
@@ -580,6 +587,8 @@ namespace GiLight2D
             _initMaterials();
 
             _setNoiseState(_noiseOptions._noise);
+            
+            _stack = _volume.Enabled ? VolumeManager.instance.CreateStack() : VolumeManager.instance.stack;
 			
             if (k_ScreenMesh == null)
             {
@@ -655,7 +664,10 @@ namespace GiLight2D
 
         private void _applyFromPostProcess()
         {
-            var settings = VolumeManager.instance.stack.GetComponent<GiLightSettings>();
+            if (_volume.Enabled)
+                VolumeManager.instance.Update(_stack, null, _volume.Value);
+            
+            var settings = _stack.GetComponent<GiLightSettings>();
             if (settings.active == false)
                 return;
             
