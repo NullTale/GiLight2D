@@ -298,9 +298,7 @@ namespace GiLight2D
                 
                 if (_hasBlurImpact())
                 {
-                    var step = _owner._blurOptions._step.Enabled ?
-                        new Vector4(_owner._blurOptions._step.Value.Value, _owner._blurOptions._step.Value.Value, 0, 0) :
-                        new Vector4(1f / desc.width, 1f / desc.height, 0f, 0f);
+                    var step = new Vector4(_owner._blurOptions._step * (desc.width / desc.height), _owner._blurOptions._step, 0, 0);
                     
                     _owner._blurMat.SetVector(s_StepId, step);
                     _pp.Apply(cmd, _owner._blurMat);
@@ -357,7 +355,7 @@ namespace GiLight2D
                 
                 bool _hasBlurImpact()
                 {
-                    return _owner._blurOptions._enable && ((_owner._blurOptions._step.Enabled && _owner._blurOptions._step.Value.Value > 0f) || _owner._blurOptions._step.Enabled == false);
+                    return _owner._blurOptions._enable && _owner._blurOptions._step > 0f;
                 }
 
                 void _execute()

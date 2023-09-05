@@ -128,7 +128,7 @@ namespace GiLight2D
         public float      Distance   { get => _distance;              set => _distance = value; }
         public float      GiScale    { get => _scaleMode._ratio;      set => _scaleMode._ratio = value; }
         public bool       Blur       { get => _blurOptions._enable;   set => _blurOptions._enable = value; }
-        public float      BlurStep   { get => _blurOptions._step.Value.Value;   set => _blurOptions._step.Value.Value = value; }
+        public float      BlurStep   { get => _blurOptions._step;   set => _blurOptions._step = value; }
         public Vector2Int GiTexSize => _rtRes;
         public Vector2Int NoiseTexSize => _noiseRes;
 
@@ -397,11 +397,12 @@ namespace GiLight2D
         [Serializable]
         internal class BlurOptions
         {
-            public bool     _enable;
+            public bool     _enable = true;
             [Tooltip("Blur type")]
             public BlurMode _mode = BlurMode.Box;
             [Tooltip("Blur distance in uv coords, if disabled step will be set to one pixel per sample")]
-            public Optional<RangeFloat> _step = new Optional<RangeFloat>(new RangeFloat(new Vector2(0f, 0.00f), 0.003f), true);
+            [Range(0, 0.003f)]
+            public float _step;
         }
         
         [Serializable]
@@ -419,14 +420,14 @@ namespace GiLight2D
         [Serializable]
         internal class OutputOptions
         {
-            [Tooltip("Where to store Gi result. If the final result is a camera, then could be applied a post processing")]
+            [Tooltip("Where to store final result")]
             public FinalBlit _finalBlit = FinalBlit.Camera;
             [Tooltip("Frame rate of gi texture")]
             public Optional<RangeFloat> _fps = new Optional<RangeFloat>(new RangeFloat(new Vector2(.0f, 120), 24.5f), false);
             [Tooltip("Global name of output texture")]
             public string _outputGlobalTexture = "_GiTex";
-            [Tooltip("Output format")]
-            public Alpha _alpha = Alpha.Mask;
+            [Tooltip("What information to store in the alpha channel")]
+            public Alpha _alpha = Alpha.One;
         }
 		
         [Serializable]
@@ -724,7 +725,7 @@ namespace GiLight2D
                 NoiseScale = settings.m_NoiseScale.value;
             
             if (settings.m_Blur.overrideState)
-                BlurStep = Mathf.LerpUnclamped(_blurOptions._step.value.Range.x, _blurOptions._step.value.Range.y,  settings.m_Blur.value);
+                BlurStep = Mathf.LerpUnclamped(0.0f, 0.003f, settings.m_Blur.value);
         }
 
         // =======================================================================

@@ -10,6 +10,9 @@ namespace GiLight2D.Editor
         // =======================================================================
         public override float GetPropertyHeight(SerializedProperty property, GUIContent label)
         {
+            if (property.isExpanded == false)
+                return EditorGUIUtility.singleLineHeight;
+            
             var finalBlit = property.FindPropertyRelative(nameof(GiLight2DFeature.OutputOptions._finalBlit));
             var lines = ((GiLight2DFeature.FinalBlit)finalBlit.intValue) switch
             {
@@ -30,20 +33,27 @@ namespace GiLight2D.Editor
             
             var index = 0;
             EditorGUI.PropertyField(_lineRect(index ++), finalBlit);
-            EditorGUI.PropertyField(_lineRect(index ++), alpha);
-
+            property.isExpanded = EditorGUI.Foldout(_lineRect(index - 1), property.isExpanded, GUIContent.none, true);
+            if (property.isExpanded == false)
+                return;
+            
+            EditorGUI.indentLevel ++;
             switch ((GiLight2DFeature.FinalBlit)finalBlit.intValue)
             {
                 case GiLight2DFeature.FinalBlit.Texture:
                 {
-                    EditorGUI.PropertyField(_lineRect(index ++), fps);
                     EditorGUI.PropertyField(_lineRect(index ++), giTexture);
+                    EditorGUI.PropertyField(_lineRect(index ++), fps);
                 } break;
                 case GiLight2DFeature.FinalBlit.Camera:
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();
             }
+            
+            EditorGUI.PropertyField(_lineRect(index ++), alpha);
+            EditorGUI.indentLevel --;
+
 
             // -----------------------------------------------------------------------
             Rect _lineRect(int n)
