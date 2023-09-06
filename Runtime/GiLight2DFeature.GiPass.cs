@@ -60,13 +60,6 @@ namespace GiLight2D
                 {
                     _output.Get(cmd, desc);
                     cmd.SetGlobalTexture(_output.Id, _output.Handle.nameID);
-
-                    if (_owner._requireDraw == false)
-                    {
-                        // only set global texture
-                        _execute();
-                        return;
-                    }
                 }
                 
 #if !UNITY_2022_1_OR_NEWER

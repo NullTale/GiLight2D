@@ -16,7 +16,7 @@ namespace GiLight2D.Editor
             var finalBlit = property.FindPropertyRelative(nameof(GiLight2DFeature.OutputOptions._finalBlit));
             var lines = ((GiLight2DFeature.FinalBlit)finalBlit.intValue) switch
             {
-                GiLight2DFeature.FinalBlit.Texture => 4,
+                GiLight2DFeature.FinalBlit.Texture => 3,
                 GiLight2DFeature.FinalBlit.Camera  => 2,
                 _                                  => throw new ArgumentOutOfRangeException()
             };
@@ -28,7 +28,6 @@ namespace GiLight2D.Editor
         {
             var finalBlit = property.FindPropertyRelative(nameof(GiLight2DFeature.OutputOptions._finalBlit));
             var giTexture = property.FindPropertyRelative(nameof(GiLight2DFeature.OutputOptions._outputGlobalTexture));
-            var fps       = property.FindPropertyRelative(nameof(GiLight2DFeature.OutputOptions._fps));
             var alpha     = property.FindPropertyRelative(nameof(GiLight2DFeature.OutputOptions._alpha));
             
             var index = 0;
@@ -43,7 +42,6 @@ namespace GiLight2D.Editor
                 case GiLight2DFeature.FinalBlit.Texture:
                 {
                     EditorGUI.PropertyField(_lineRect(index ++), giTexture);
-                    EditorGUI.PropertyField(_lineRect(index ++), fps);
                 } break;
                 case GiLight2DFeature.FinalBlit.Camera:
                     break;

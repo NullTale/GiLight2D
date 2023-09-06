@@ -256,7 +256,6 @@ namespace GiLight2D
             set => _outputOverride = value;
         }
 
-        private bool         _requireDraw;
         private NoiseTexture _noisePattern;
         private bool         _noiseFilter;
 
@@ -422,8 +421,6 @@ namespace GiLight2D
         {
             [Tooltip("Where to store final result")]
             public FinalBlit _finalBlit = FinalBlit.Camera;
-            [Tooltip("Frame rate of gi texture")]
-            public Optional<RangeFloat> _fps = new Optional<RangeFloat>(new RangeFloat(new Vector2(.0f, 120), 24.5f), false);
             [Tooltip("Global name of output texture")]
             public string _outputGlobalTexture = "_GiTex";
             [Tooltip("What information to store in the alpha channel")]
@@ -447,7 +444,7 @@ namespace GiLight2D
         [Serializable]
         public class TraceOptions
         {
-            public bool  _enable = true;
+            public bool  _enable = false;
             [Tooltip("Bounce texture scale")]
             [Range(0.001f, 1)]
             public float _scale = 1f;
@@ -636,18 +633,6 @@ namespace GiLight2D
             }
             
             _applyFromPostProcess();
-            
-            _requireDraw = true;
-            
-            if (_output._finalBlit == FinalBlit.Texture && _output._fps.Enabled)
-            {
-                if (_fps.Current >= _output._fps.Value.Value)
-                    _requireDraw = false;
-                else
-                    _fps.Frame();
-                
-			    _fps.Update();
-            }
             
             _setupDesc(in renderingData);
             
