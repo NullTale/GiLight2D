@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace GiLight2D.Editor
 {
-    [CustomPropertyDrawer(typeof(GiLight2DFeature.ScaleModeOptions))]
+    [CustomPropertyDrawer(typeof(GiLight2D.ScaleModeOptions))]
     public class ScaleModeOptionsDrawer : PropertyDrawer
     {
         // =======================================================================
@@ -13,24 +13,24 @@ namespace GiLight2D.Editor
             if (property.isExpanded == false)
                 return EditorGUIUtility.singleLineHeight;
             
-            var scaleMode = (GiLight2DFeature.ScaleMode)property.FindPropertyRelative(nameof(GiLight2DFeature.ScaleModeOptions._scaleMode)).intValue;
+            var scaleMode = (GiLight2D.ScaleMode)property.FindPropertyRelative(nameof(GiLight2D.ScaleModeOptions._scaleMode)).intValue;
             return scaleMode switch
             {
-                GiLight2DFeature.ScaleMode.None  => EditorGUIUtility.singleLineHeight,
-                GiLight2DFeature.ScaleMode.Scale => EditorGUIUtility.singleLineHeight * 2,
-                GiLight2DFeature.ScaleMode.Fixed => EditorGUIUtility.singleLineHeight * 3,
+                GiLight2D.ScaleMode.None  => EditorGUIUtility.singleLineHeight,
+                GiLight2D.ScaleMode.Scale => EditorGUIUtility.singleLineHeight * 2,
+                GiLight2D.ScaleMode.Fixed => EditorGUIUtility.singleLineHeight * 3,
                 _                                => throw new ArgumentOutOfRangeException()
             };
         }
 
         public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
         {
-            var scaleMode = property.FindPropertyRelative(nameof(GiLight2DFeature.ScaleModeOptions._scaleMode));
-            var ratio     = property.FindPropertyRelative(nameof(GiLight2DFeature.ScaleModeOptions._ratio));
-            var height    = property.FindPropertyRelative(nameof(GiLight2DFeature.ScaleModeOptions._height));
+            var scaleMode = property.FindPropertyRelative(nameof(GiLight2D.ScaleModeOptions._scaleMode));
+            var ratio     = property.FindPropertyRelative(nameof(GiLight2D.ScaleModeOptions._ratio));
+            var height    = property.FindPropertyRelative(nameof(GiLight2D.ScaleModeOptions._height));
             
-            scaleMode.intValue = (int)(GiLight2DFeature.ScaleMode)EditorGUI.EnumPopup(new Rect(position.x, position.y, position.width, EditorGUIUtility.singleLineHeight), label, (GiLight2DFeature.ScaleMode)scaleMode.intValue);
-            if (((GiLight2DFeature.ScaleMode)scaleMode.intValue) != GiLight2DFeature.ScaleMode.None)
+            scaleMode.intValue = (int)(GiLight2D.ScaleMode)EditorGUI.EnumPopup(new Rect(position.x, position.y, position.width, EditorGUIUtility.singleLineHeight), label, (GiLight2D.ScaleMode)scaleMode.intValue);
+            if (((GiLight2D.ScaleMode)scaleMode.intValue) != GiLight2D.ScaleMode.None)
             {
                 property.isExpanded = EditorGUI.Foldout(new Rect(position.x, position.y, position.width, EditorGUIUtility.singleLineHeight), property.isExpanded, label, true);
                 if (property.isExpanded == false)
@@ -47,15 +47,15 @@ namespace GiLight2D.Editor
             
             EditorGUI.indentLevel ++;
 
-            switch ((GiLight2DFeature.ScaleMode)scaleMode.intValue)
+            switch ((GiLight2D.ScaleMode)scaleMode.intValue)
             {
-                case GiLight2DFeature.ScaleMode.None:
+                case GiLight2D.ScaleMode.None:
                     break;
-                case GiLight2DFeature.ScaleMode.Scale:
+                case GiLight2D.ScaleMode.Scale:
                 {
                     EditorGUI.PropertyField(new Rect(position.x, position.y + EditorGUIUtility.singleLineHeight, position.width, EditorGUIUtility.singleLineHeight), ratio);
                 } break;
-                case GiLight2DFeature.ScaleMode.Fixed:
+                case GiLight2D.ScaleMode.Fixed:
                 {
                     EditorGUI.PropertyField(new Rect(position.x, position.y + EditorGUIUtility.singleLineHeight, position.width, EditorGUIUtility.singleLineHeight), ratio);
                     EditorGUI.PropertyField(new Rect(position.x, position.y + EditorGUIUtility.singleLineHeight * 2, position.width, EditorGUIUtility.singleLineHeight), height);

@@ -8,9 +8,9 @@ WebGl https://nulltale.itch.io/light-room<br>
 
 
 
-## What is it
+## What is it?
 In practice, this is an approach to lighting with rays, in which glow and shadows are created naturally, and the number of light sources is not limited.<br>
-Implemented quite enough options, tested with unity 2021 and 2022 versions.<br>
+Implemented quite enough options, tested with Unity 2022.<br>
 
 #### Some of the options
 * fixed resolution for pixel art.
@@ -48,7 +48,7 @@ Now the texture can be used from the shader.<br>
 ![image](https://user-images.githubusercontent.com/1497430/213909802-45824d6d-7307-416f-b6f9-caebc7f45032.png)<br>
 <sup>The sprite of the square uses the Gi texture from the screen coordinates.</sup>
 
-## How it works
+## How it works?
 The general idea is that from each pixel rays are released in all directions, from the sum of the rays that hit the light source is the final color of the pixel.<Br> In the end a lighting texture should be calculated which can then be used.<Br> With this approach glow and shadow are formed naturally.
   
 ![Rays](https://user-images.githubusercontent.com/1497430/214540599-eb907420-0655-4029-b54e-3484a69e4b31.gif)

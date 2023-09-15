@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace GiLight2D.Editor
 {
-    [CustomPropertyDrawer(typeof(GiLight2DFeature.OutputOptions))]
+    [CustomPropertyDrawer(typeof(GiLight2D.OutputOptions))]
     public class OutputDrawer : PropertyDrawer
     {
         // =======================================================================
@@ -13,11 +13,11 @@ namespace GiLight2D.Editor
             if (property.isExpanded == false)
                 return EditorGUIUtility.singleLineHeight;
             
-            var finalBlit = property.FindPropertyRelative(nameof(GiLight2DFeature.OutputOptions._finalBlit));
-            var lines = ((GiLight2DFeature.FinalBlit)finalBlit.intValue) switch
+            var finalBlit = property.FindPropertyRelative(nameof(GiLight2D.OutputOptions._finalBlit));
+            var lines = ((GiLight2D.FinalBlit)finalBlit.intValue) switch
             {
-                GiLight2DFeature.FinalBlit.Texture => 3,
-                GiLight2DFeature.FinalBlit.Camera  => 2,
+                GiLight2D.FinalBlit.Texture => 3,
+                GiLight2D.FinalBlit.Camera  => 2,
                 _                                  => throw new ArgumentOutOfRangeException()
             };
             
@@ -26,9 +26,9 @@ namespace GiLight2D.Editor
 
         public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
         {
-            var finalBlit = property.FindPropertyRelative(nameof(GiLight2DFeature.OutputOptions._finalBlit));
-            var giTexture = property.FindPropertyRelative(nameof(GiLight2DFeature.OutputOptions._outputGlobalTexture));
-            var alpha     = property.FindPropertyRelative(nameof(GiLight2DFeature.OutputOptions._alpha));
+            var finalBlit = property.FindPropertyRelative(nameof(GiLight2D.OutputOptions._finalBlit));
+            var giTexture = property.FindPropertyRelative(nameof(GiLight2D.OutputOptions._outputGlobalTexture));
+            var alpha     = property.FindPropertyRelative(nameof(GiLight2D.OutputOptions._alpha));
             
             var index = 0;
             EditorGUI.PropertyField(_lineRect(index ++), finalBlit);
@@ -37,13 +37,13 @@ namespace GiLight2D.Editor
                 return;
             
             EditorGUI.indentLevel ++;
-            switch ((GiLight2DFeature.FinalBlit)finalBlit.intValue)
+            switch ((GiLight2D.FinalBlit)finalBlit.intValue)
             {
-                case GiLight2DFeature.FinalBlit.Texture:
+                case GiLight2D.FinalBlit.Texture:
                 {
                     EditorGUI.PropertyField(_lineRect(index ++), giTexture);
                 } break;
-                case GiLight2DFeature.FinalBlit.Camera:
+                case GiLight2D.FinalBlit.Camera:
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();

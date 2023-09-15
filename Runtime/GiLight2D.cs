@@ -1,16 +1,14 @@
 using System;
 using System.Collections.Generic;
-using System.Runtime.InteropServices;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
-using UnityEngine.Serialization;
 using Random = UnityEngine.Random;
 
 namespace GiLight2D
 {
-    public partial class GiLight2DFeature : ScriptableRendererFeature
+    public partial class GiLight2D : ScriptableRendererFeature
     {
         private const string k_BlitShader  = "Hidden/GiLight2D/Blit";
         private const string k_JfaShader   = "Hidden/GiLight2D/JumpFlood";
@@ -422,7 +420,7 @@ namespace GiLight2D
             [Tooltip("Where to store final result")]
             public FinalBlit _finalBlit = FinalBlit.Camera;
             [Tooltip("Global name of output texture")]
-            public string _outputGlobalTexture = "_GiTex";
+            public string _outputGlobalTexture = "_giTex";
             [Tooltip("What information to store in the alpha channel")]
             public Alpha _alpha = Alpha.One;
         }
@@ -608,6 +606,7 @@ namespace GiLight2D
             // init noise
             _initNoise();
         }
+        private static float _timeLimiter;
         
         public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
         {
@@ -618,6 +617,7 @@ namespace GiLight2D
                 Create();
             }
 #endif
+
             if (_runInSceneView)
             {
                 // in game or scene view
@@ -820,7 +820,6 @@ namespace GiLight2D
 		
         private void _initNoise()
         {
-            
             // try block to fix editor startup error
             try
             {

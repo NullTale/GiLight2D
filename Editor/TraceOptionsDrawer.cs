@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace GiLight2D.Editor
 {
-    [CustomPropertyDrawer(typeof(GiLight2DFeature.TraceOptions))]
+    [CustomPropertyDrawer(typeof(GiLight2D.TraceOptions))]
     public class TraceOptionsDrawer : PropertyDrawer
     {
         // =======================================================================
@@ -24,12 +24,12 @@ namespace GiLight2D.Editor
 
             EditorGUI.indentLevel ++;
             
-            var enable    = property.FindPropertyRelative(nameof(GiLight2DFeature.TraceOptions._enable));
-            var scale     = property.FindPropertyRelative(nameof(GiLight2DFeature.TraceOptions._scale));
-            var piercing  = property.FindPropertyRelative(nameof(GiLight2DFeature.TraceOptions._piercing));
-            var bounces   = property.FindPropertyRelative(nameof(GiLight2DFeature.TraceOptions._bounces));
-            var intencity = property.FindPropertyRelative(nameof(GiLight2DFeature.TraceOptions._intencity));
-            var scales    = property.FindPropertyRelative(nameof(GiLight2DFeature.TraceOptions._scales));
+            var enable    = property.FindPropertyRelative(nameof(GiLight2D.TraceOptions._enable));
+            var scale     = property.FindPropertyRelative(nameof(GiLight2D.TraceOptions._scale));
+            var piercing  = property.FindPropertyRelative(nameof(GiLight2D.TraceOptions._piercing));
+            var bounces   = property.FindPropertyRelative(nameof(GiLight2D.TraceOptions._bounces));
+            var intencity = property.FindPropertyRelative(nameof(GiLight2D.TraceOptions._intencity));
+            var scales    = property.FindPropertyRelative(nameof(GiLight2D.TraceOptions._scales));
             
             EditorGUI.PropertyField(_fieldRect(index ++), enable);
             EditorGUI.PropertyField(_fieldRect(index ++), scale);

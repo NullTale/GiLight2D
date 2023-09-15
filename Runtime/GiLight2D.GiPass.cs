@@ -7,14 +7,12 @@ using Random = UnityEngine.Random;
 
 namespace GiLight2D
 {
-    public partial class GiLight2DFeature
+    public partial class GiLight2D
     {
         private class GiPass : ScriptableRenderPass
         {
-            public GiLight2DFeature _owner;
+            public GiLight2D _owner;
             
-            private FilteringSettings       _filtering;
-            private RenderStateBlock        _override;
             private RenderTarget            _buffer;
             private RenderTarget            _dist;
             private RenderTargetFlip        _bounce;
@@ -25,6 +23,7 @@ namespace GiLight2D
             private RenderTargetPostProcess _pp;
             private RenderTarget            _output;
             private RTHandle                _cameraOutput;
+            private RendererListParams      _rlp;
 			
             // =======================================================================
             public void Init()
@@ -41,8 +40,7 @@ namespace GiLight2D
                 _pp           = new RenderTargetPostProcess(new RenderTarget().Allocate($"{nameof(_pp)}_a"), new RenderTarget().Allocate($"{nameof(_pp)}_b"));
                 _output       = new RenderTarget().Allocate(_owner._output._outputGlobalTexture);
 				
-                _filtering = new FilteringSettings(RenderQueueRange.all, _owner._mask);
-                _override  = new RenderStateBlock(RenderStateMask.Nothing);
+                _rlp       = new RendererListParams(new CullingResults(), new DrawingSettings(), new FilteringSettings(RenderQueueRange.all, _owner._mask));
             }
 
             public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
@@ -51,7 +49,7 @@ namespace GiLight2D
                 ref var res  = ref _owner._rtRes;
                 ref var bounceRes  = ref _owner._rtBounceRes;
                 ref var desc = ref _owner._rtDesc;
-                var     cmd  = CommandBufferPool.Get(nameof(GiLight2DFeature));
+                var     cmd  = CommandBufferPool.Get(nameof(GiLight2D));
 
                 ref var cameraData = ref renderingData.cameraData;
                 var     camera     = cameraData.camera;
@@ -134,10 +132,12 @@ namespace GiLight2D
 				
                 cmd.SetRenderTarget(_buffer.Handle.nameID);
                 cmd.ClearRenderTarget(_owner._depthStencil ? RTClearFlags.All : RTClearFlags.Color, Color.clear, 1f, 0);
-                context.ExecuteCommandBuffer(cmd);
-                cmd.Clear();
-                var drawSettings = CreateDrawingSettings(k_ShaderTags, ref renderingData, SortingCriteria.CommonTransparent);
-                context.DrawRenderers(cullResults, ref drawSettings, ref _filtering, ref _override);
+
+                _rlp.cullingResults = cullResults;
+                _rlp.drawSettings   = CreateDrawingSettings(k_ShaderTags, ref renderingData, SortingCriteria.CommonTransparent);
+                
+                var rl = context.CreateRendererList(ref _rlp);
+                cmd.DrawRendererList(rl);
 				
                 if (_owner.HasGiBorder)
                 {
@@ -333,7 +333,7 @@ namespace GiLight2D
                 // -----------------------------------------------------------------------
                 void _blit(RTHandle from, RTHandle to, Material mat, int pass = 0)
                 {
-                    GiLight2DFeature._blit(cmd, from, to, mat, pass);
+                    GiLight2D._blit(cmd, from, to, mat, pass);
                 }
 
                 int _postProcessCount()
