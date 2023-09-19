@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
+//  GiLight2D © NullTale - https://twitter.com/NullTale/
 namespace GiLight2D
 {
     [Serializable, VolumeComponentMenu("GiLight")]

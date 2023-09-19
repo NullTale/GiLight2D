@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 
+//  GiLight2D © NullTale - https://twitter.com/NullTale/
 namespace GiLight2D
 {
     [Serializable]

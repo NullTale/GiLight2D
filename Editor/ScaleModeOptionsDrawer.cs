@@ -2,6 +2,7 @@ using System;
 using UnityEditor;
 using UnityEngine;
 
+//  GiLight2D © NullTale - https://twitter.com/NullTale/
 namespace GiLight2D.Editor
 {
     [CustomPropertyDrawer(typeof(GiLight2D.ScaleModeOptions))]

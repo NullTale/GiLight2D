@@ -5,6 +5,7 @@ using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 using Random = UnityEngine.Random;
 
+//  GiLight2D © NullTale - https://twitter.com/NullTale/
 namespace GiLight2D
 {
     public partial class GiLight2D
