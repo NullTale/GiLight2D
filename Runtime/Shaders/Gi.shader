@@ -1,5 +1,10 @@
 Shader "Hidden/GiLight2D/Gi"
 {
+    Properties 
+    { 
+	    SrcMode ("SrcMode", Float) = 0
+	    DstMode ("DstMode", Float) = 0
+    } 
     SubShader
     {
         Cull Off
@@ -9,13 +14,14 @@ Shader "Hidden/GiLight2D/Gi"
         Pass    // 0
         {
             name "Gi"
+	        Blend [SrcMode] [DstMode]
 
             HLSLPROGRAM
             #include "Utils.hlsl"
             
             #pragma multi_compile_local RAY_BOUNCES _
             #pragma multi_compile_local FRAGMENT_RANDOM TEXTURE_RANDOM _
-            #pragma multi_compile_local ONE_ALPHA OBJECTS_MASK_ALPHA NORMALIZED_ALPHA SATURATION_ALPHA
+            #pragma multi_compile_local ONE_ALPHA OBJECTS_MASK_ALPHA NORMALIZED_ALPHA
 
             #pragma vertex vert
             #pragma fragment frag
@@ -142,15 +148,10 @@ Shader "Hidden/GiLight2D/Gi"
                 const float mask = tex2D(_ColorTex, i.uv).a;
                 return float4(result, mask);
                 
-#elif defined(SATURATION_ALPHA)
-                // alpha as rec601 grayscale
-                return float4(result, dot(result, float3(0.299, 0.587, 0.114)));
-                
 #elif defined(NORMALIZED_ALPHA)
                 // normalize color, alpha as opacity
                 float norm = max(result.r, max(result.g, result.b));
                 return float4(result / norm, norm);
-                
 #endif
             }
             ENDHLSL

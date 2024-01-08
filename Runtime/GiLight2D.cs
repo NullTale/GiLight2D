@@ -44,32 +44,34 @@ namespace GiLight2D
         public static Mesh ScreenMesh => k_ScreenMesh;
 
         [SerializeField]
-        private RenderPassEvent     _event = RenderPassEvent.BeforeRenderingOpaques;
+        private RenderPassEvent      _event = RenderPassEvent.BeforeRenderingOpaques;
         [SerializeField]
         [Tooltip("Which objects should be rendered as Gi")]
-        private LayerMask           _mask = new LayerMask() { value = -1 };
+        private LayerMask            _mask = new LayerMask() { value = -1 };
         
         [SerializeField]
         [Tooltip("Which volume settings to use")]
-        private Optional<LayerMask> _volume = new Optional<LayerMask>(false);
+        private Optional<LayerMask>  _volume = new Optional<LayerMask>(false);
+        [SerializeField]
+        private OutputOptions        _output = new OutputOptions();
         [SerializeField]
         [Tooltip("Attach depth stencil buffer for Gi rendering. Allows stencil mask interaction and z culling")]
-        private bool                _depthStencil = true;
+        private bool                 _depthStencil = true;
 		
         [SerializeField]
         [Tooltip("How many rays to emit from each pixel")]
-        private int                 _rays = 100;
+        private int                  _rays = 100;
         [SerializeField]
-        public TraceOptions         _traceOptions = new TraceOptions();
+        public TraceOptions          _traceOptions = new TraceOptions();
         [SerializeField]
         [Tooltip("Final light intensity, basically color multiplier")]
-        private RangeFloat 		    _intensity = new RangeFloat(new Vector2(.0f, 3f), 1f);
+        private RangeFloat 		     _intensity = new RangeFloat(new Vector2(.0f, 3f), 1f);
         [SerializeField]
         [Tooltip("Max ray distance in world space (relative to full alpha)")]
-        private float               _distance = 7;
+        private float                _distance = 7;
         [SerializeField]
         [Tooltip("Rays aspect")]
-        private float 			    _aspect = 0;
+        private float 			     _aspect = 0;
         [SerializeField]
         [Tooltip("Maximum number of ray steps")]
         private RaySteps             _steps = RaySteps.N16;
@@ -77,15 +79,13 @@ namespace GiLight2D
         [Tooltip("Distance map additional offset for each ray step")]
         private Optional<RangeFloat> _distOffset = new Optional<RangeFloat>(new RangeFloat(new Vector2(-.01f, .1f), .0f), false);
         [SerializeField]
-        private NoiseOptions        _noiseOptions = new NoiseOptions();
+        private NoiseOptions         _noiseOptions = new NoiseOptions();
         [SerializeField]
         [Tooltip("Additional orthographic camera space, to make objects visible outside of the camera frame")]
         private Optional<RangeFloat> _border = new Optional<RangeFloat>(new RangeFloat(new Vector2(.0f, 3f), 0f), false);
         [SerializeField]
         private ScaleModeOptions     _scaleMode = new ScaleModeOptions();
 		
-        [SerializeField]
-        private OutputOptions        _output = new OutputOptions();
         [SerializeField]
         private BlurOptions          _blurOptions = new BlurOptions();
         [Header("Debug")]
@@ -118,7 +118,7 @@ namespace GiLight2D
         private Vector2Int              _rtBounceRes = Vector2Int.zero;
         private Fps                     _fps         = new Fps();
 
-        private bool ForceTextureOutput => _output._finalBlit == FinalBlit.Texture;
+        private bool ForceTextureOutput => _output._output == FinalBlit.Texture;
         private bool HasGiBorder        => _border.Enabled && _border.Value.Value > 0f;
 		
         public int        Rays       { get => _rays;                  set => _rays = value; }
@@ -245,8 +245,8 @@ namespace GiLight2D
 
         public FinalBlit Output
         {
-            get => _output._finalBlit;
-            set => _output._finalBlit = value;
+            get => _output._output;
+            set => _output._output = value;
         }
         
         public DebugOutput OutputOverride
@@ -419,9 +419,9 @@ namespace GiLight2D
         internal class OutputOptions
         {
             [Tooltip("Where to store final result")]
-            public FinalBlit _finalBlit = FinalBlit.Camera;
+            public FinalBlit _output = FinalBlit.Camera;
             [Tooltip("Global name of output texture")]
-            public string _outputGlobalTexture = "_giTex";
+            public string _globalTexture = "_giTex";
             [Tooltip("What information to store in the alpha channel")]
             public Alpha _alpha = Alpha.One;
         }
@@ -511,7 +511,10 @@ namespace GiLight2D
         public enum ScaleMode
         {
             None,
+            
+            [Tooltip("Scale relative camera resolution")]
             Scale,
+            [Tooltip("Scale always has fixed frame height, but aspect still will be taken from the camera")]
             Fixed,
         }
 		
@@ -565,10 +568,12 @@ namespace GiLight2D
 
         public enum Alpha
         {
+            [Tooltip("Always one")]
             One,
+            [Tooltip("Object mask")]
             Mask,
-            Blend,
-            Saturation
+            [Tooltip("Texture will be used for alpha blending")]
+            Blend
         }
         
         // =======================================================================
@@ -607,8 +612,10 @@ namespace GiLight2D
             // init noise
             _initNoise();
         }
-        private static float _timeLimiter;
-        
+        private static          float _timeLimiter;
+        private static readonly int   s_SrcMode = Shader.PropertyToID("SrcMode");
+        private static readonly int   s_DstMode = Shader.PropertyToID("DstMode");
+
         public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
         {
 #if UNITY_EDITOR
@@ -654,7 +661,7 @@ namespace GiLight2D
             if (_volume.Enabled)
                 VolumeManager.instance.Update(_stack, null, _volume.Value);
             
-            var settings = _stack.GetComponent<GiLightSettings>();
+            var settings = _stack.GetComponent<GiLightVol>();
             if (settings.active == false)
                 return;
             
@@ -680,13 +687,13 @@ namespace GiLight2D
                     5 => RaySteps.N16,
                     _ => throw new ArgumentOutOfRangeException()
                 };
-        
+            
             if (settings.m_Scale.overrideState)
                 GiScale = settings.m_Scale.value;
             
             if (settings.m_NoiseTex.overrideState)
             {
-                if (settings.m_NoiseTex.value == GiLightSettings.NoiseTexture.None)
+                if (settings.m_NoiseTex.value == GiLightVol.NoiseTexture.None)
                 {
                     Noise = NoiseSource.None;
                 }
@@ -695,10 +702,10 @@ namespace GiLight2D
                     Noise = NoiseSource.Texture;
                     NoisePattern = settings.m_NoiseTex.value switch
                     {
-                        GiLightSettings.NoiseTexture.Random  => NoiseTexture.Random,
-                        GiLightSettings.NoiseTexture.LinesH  => NoiseTexture.LinesH,
-                        GiLightSettings.NoiseTexture.LinesV  => NoiseTexture.LinesV,
-                        GiLightSettings.NoiseTexture.Checker => NoiseTexture.Checker,
+                        GiLightVol.NoiseTexture.Random  => NoiseTexture.Random,
+                        GiLightVol.NoiseTexture.LinesH  => NoiseTexture.LinesH,
+                        GiLightVol.NoiseTexture.LinesV  => NoiseTexture.LinesV,
+                        GiLightVol.NoiseTexture.Checker => NoiseTexture.Checker,
                         _                                    => throw new ArgumentOutOfRangeException()
                     };
                 }
@@ -709,6 +716,9 @@ namespace GiLight2D
         
             if (settings.m_NoiseScale.overrideState)
                 NoiseScale = settings.m_NoiseScale.value;
+            
+            if (settings.m_NoiseFilter.overrideState)
+                NoiseFilter = settings.m_NoiseFilter.value;
             
             if (settings.m_Blur.overrideState)
                 BlurStep = Mathf.LerpUnclamped(0.0f, 0.003f, settings.m_Blur.value);
@@ -1006,9 +1016,6 @@ namespace GiLight2D
                 case Alpha.Blend:
                     _giMat.DisableKeyword("NORMALIZED_ALPHA");
                     break;
-                case Alpha.Saturation:
-                    _giMat.DisableKeyword("SATURATION_ALPHA");
-                    break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(alpha), alpha, null);
             }
@@ -1026,11 +1033,20 @@ namespace GiLight2D
                 case Alpha.Blend:
                     _giMat.EnableKeyword("NORMALIZED_ALPHA");
                     break;
-                case Alpha.Saturation:
-                    _giMat.EnableKeyword("SATURATION_ALPHA");
-                    break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(alpha), alpha, null);
+            }
+            
+            // draw with alpha blending if camera overlay
+            if (_output._output == FinalBlit.Camera)
+            {
+                _giMat.SetInt (s_SrcMode, (int)BlendMode.SrcAlpha);
+                _giMat.SetInt (s_DstMode, (int)BlendMode.OneMinusSrcAlpha);
+            }
+            else
+            {
+                _giMat.SetInt(s_SrcMode, (int)BlendMode.One);
+                _giMat.SetInt(s_DstMode, (int)BlendMode.Zero);
             }
         }
         

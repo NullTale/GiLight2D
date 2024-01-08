@@ -25,6 +25,11 @@ namespace GiLight2D
             private RenderTarget            _output;
             private RTHandle                _cameraOutput;
             private RendererListParams      _rlp;
+            private ProfilingSampler        _jfaProfiler;
+            private ProfilingSampler        _objProfiler;
+            private ProfilingSampler        _distProfiler;
+            private ProfilingSampler        _traceProfiler;
+            //private ProfilingSampler        _giProfiler;
 			
             // =======================================================================
             public void Init()
@@ -39,9 +44,15 @@ namespace GiLight2D
                 _alpha        = new RenderTarget().Allocate(nameof(_alpha));
                 _jfa          = new RenderTargetFlip(new RenderTarget().Allocate($"{nameof(_jfa)}_a"), new RenderTarget().Allocate($"{nameof(_jfa)}_b"));
                 _pp           = new RenderTargetPostProcess(new RenderTarget().Allocate($"{nameof(_pp)}_a"), new RenderTarget().Allocate($"{nameof(_pp)}_b"));
-                _output       = new RenderTarget().Allocate(_owner._output._outputGlobalTexture);
+                _output       = new RenderTarget().Allocate(_owner._output._globalTexture);
 				
                 _rlp       = new RendererListParams(new CullingResults(), new DrawingSettings(), new FilteringSettings(RenderQueueRange.all, _owner._mask));
+                
+                _jfaProfiler  = new ProfilingSampler("Screen Uv Fluid Fill");
+                _objProfiler  = new ProfilingSampler("Objects");
+                _distProfiler = new ProfilingSampler("Distance");
+                _traceProfiler   = new ProfilingSampler("Trace");
+                //_giProfiler   = new ProfilingSampler("Gi");
             }
 
             public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
@@ -104,6 +115,7 @@ namespace GiLight2D
                 _dist.Get(cmd, desc);
                 
 
+                _objProfiler.Begin(cmd);
                 // render with layer mask
                 var cullResults = renderingData.cullResults;
                 if (_owner.HasGiBorder)
@@ -145,7 +157,9 @@ namespace GiLight2D
                     RenderingUtils.SetViewAndProjectionMatrices(cmd, cameraData.GetViewMatrix(), cameraData.GetGPUProjectionMatrix(), false);
                 }
 				
+                _objProfiler.End(cmd);
                 
+                _jfaProfiler.Begin(cmd);
                 // draw uv with alpha mask 
                 _blit(_buffer.Handle, _jfa.From.Handle, _owner._blitMat, 3);
 				
@@ -156,15 +170,19 @@ namespace GiLight2D
 
                 for (var n = 0; n < steps; n++)
                 {
-                    stepSize /= 2;
+                    stepSize /= 2f;
                     cmd.SetGlobalVector(s_StepSizeId, stepSize);
 					
                     _blit(_jfa.From.Handle, _jfa.To.Handle, _owner._jfaMat);
                     _jfa.Flip();
                 }
+                _jfaProfiler.End(cmd);
 
+                _distProfiler.Begin(cmd);
                 // evaluate distance from uv coords
                 _blit(_jfa.From.Handle, _dist.Handle, _owner._distMat);
+                _distProfiler.End(cmd);
+                
                 _jfa.Flip();
 				
                 // apply raytracer, final blit
@@ -221,6 +239,7 @@ namespace GiLight2D
                         throw new ArgumentOutOfRangeException();
                 }
 
+                _traceProfiler.Begin(cmd);
                 // add ray bounces to the initial color texture
                 if (_owner._traceOptions._enable)
                 {
@@ -278,10 +297,12 @@ namespace GiLight2D
                     cmd.SetGlobalTexture(s_BounceTexId, _bounceResult.Handle.nameID);
                 }
 
+                _traceProfiler.End(cmd);
+                
                 // draw gi & apply post process
                 desc.colorFormat = RenderTextureFormat.ARGB32;
                 var passes = _postProcessCount();
-                var output = _owner._output._finalBlit switch
+                var output = _owner._output._output switch
                 {
                     FinalBlit.Texture => _output.Handle,
                     FinalBlit.Camera  => _cameraOutput,

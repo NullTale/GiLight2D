@@ -14,7 +14,7 @@ namespace GiLight2D.Editor
             if (property.isExpanded == false)
                 return EditorGUIUtility.singleLineHeight;
             
-            var finalBlit = property.FindPropertyRelative(nameof(GiLight2D.OutputOptions._finalBlit));
+            var finalBlit = property.FindPropertyRelative(nameof(GiLight2D.OutputOptions._output));
             var lines = ((GiLight2D.FinalBlit)finalBlit.intValue) switch
             {
                 GiLight2D.FinalBlit.Texture => 3,
@@ -27,8 +27,8 @@ namespace GiLight2D.Editor
 
         public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
         {
-            var finalBlit = property.FindPropertyRelative(nameof(GiLight2D.OutputOptions._finalBlit));
-            var giTexture = property.FindPropertyRelative(nameof(GiLight2D.OutputOptions._outputGlobalTexture));
+            var finalBlit = property.FindPropertyRelative(nameof(GiLight2D.OutputOptions._output));
+            var giTexture = property.FindPropertyRelative(nameof(GiLight2D.OutputOptions._globalTexture));
             var alpha     = property.FindPropertyRelative(nameof(GiLight2D.OutputOptions._alpha));
             
             var index = 0;

@@ -28,7 +28,7 @@ Shader "Hidden/GiLight2D/Blit"
         
         Pass    // 1
         {
-            name "Alpha"
+            name "Alpha Only"
             
             HLSLPROGRAM
             #include "Utils.hlsl"
