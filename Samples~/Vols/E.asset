@@ -1,0 +1,62 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d7fd9488000d3734a9e00ee676215985, type: 3}
+  m_Name: E
+  m_EditorClassIdentifier: 
+  components:
+  - {fileID: 1258213854116092337}
+--- !u!114 &1258213854116092337
+MonoBehaviour:
+  m_ObjectHideFlags: 3
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 23a3010b37764c3295d27e38ba2684b3, type: 3}
+  m_Name: GiLightSettings
+  m_EditorClassIdentifier: 
+  active: 1
+  m_Rays:
+    m_OverrideState: 1
+    m_Value: 50
+  m_Intensity:
+    m_OverrideState: 1
+    m_Value: 1
+  m_Distance:
+    m_OverrideState: 1
+    m_Value: 33
+  m_Aspect:
+    m_OverrideState: 1
+    m_Value: 0
+  m_Steps:
+    m_OverrideState: 1
+    m_Value: 5
+  m_Scale:
+    m_OverrideState: 1
+    m_Value: 1
+  m_NoiseTex:
+    m_OverrideState: 1
+    m_Value: 1
+  m_NoiseVel:
+    m_OverrideState: 1
+    m_Value: {x: 1, y: 0}
+  m_NoiseScale:
+    m_OverrideState: 1
+    m_Value: 1
+  m_NoiseFilter:
+    m_OverrideState: 0
+    m_Value: 0
+  m_Blur:
+    m_OverrideState: 1
+    m_Value: 0
