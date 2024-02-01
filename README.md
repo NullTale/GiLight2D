@@ -2,12 +2,14 @@
 
 [![Twitter](https://img.shields.io/badge/Follow-Twitter?logo=twitter&color=white)](https://twitter.com/NullTale)
 [![Boosty](https://img.shields.io/badge/Support-Boosty?logo=boosty&color=white)](https://boosty.to/nulltale)
+[![Itch](https://img.shields.io/badge/Demo-Itch?logo=itch.io&color=white)](https://nulltale.itch.io/light-room)
 
 Unity Urp Render Feature for 2D Global Illumination.<br>
 GiLight can be used both for conventional lighting and to create stylized visual effects ✨<br>
 WebGl https://nulltale.itch.io/light-room<br>
 
 [![Asset Store](https://img.shields.io/badge/Asset%20Store-asd?logo=Unity&color=red)](https://assetstore.unity.com/packages/tools/particles-effects/gilight2d-268033)
+[![Forum](https://img.shields.io/badge/Forum-asd?logo=ChatBot&color=blue)](https://forum.unity.com/threads/1542806/)
 
 ![Gif](https://github.com/NullTale/GiLight2D/assets/1497430/d5eb3708-93e0-462a-829e-6931863ad2ad)
 
