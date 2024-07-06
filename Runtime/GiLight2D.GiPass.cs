@@ -165,8 +165,8 @@ namespace GiLight2D
 				
                 // fluid fill uv coords
                 var max      = Mathf.Max(res.x, res.y);
-                var steps    = Mathf.CeilToInt(Mathf.Log(max));
-                var stepSize = new Vector2(1, 1);
+                var steps    = Mathf.CeilToInt(Mathf.Log(max) + 1);
+                var stepSize = new Vector2(1 / aspectRatioX, 1) * .99f;
 
                 for (var n = 0; n < steps; n++)
                 {
