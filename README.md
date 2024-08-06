@@ -1,8 +1,8 @@
 # GiLight2D
 
-[![Twitter](https://img.shields.io/badge/Follow-Twitter?logo=X&color=red)](https://x.com/NullTale)
+[![Twitter](https://img.shields.io/badge/Twitter-Twitter?logo=X&color=red)](https://x.com/NullTale)
 [![Discord](https://img.shields.io/badge/Discord-Discord?logo=discord&color=white)](https://discord.gg/CkdQvtA5un)
-[![Boosty](https://img.shields.io/badge/Support-Boosty?logo=boosty&color=white)](https://boosty.to/nulltale)
+[![Boosty](https://img.shields.io/badge/Support-Boosty?logo=boosty&color=white)](https://boosty.to/nulltale/donate)
 [![Itch](https://img.shields.io/badge/Demo-Itch?logo=itch.io&color=white)](https://nulltale.itch.io/light-room)
 
 Unity Urp Render Feature for 2D Global Illumination.<br>
