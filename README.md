@@ -10,6 +10,8 @@
 Unity Urp Render Feature for 2D Global Illumination.<br>
 GiLight can be used both for conventional lighting and to create stylized visual effects ✨
 
+* Tested with Unity 2021, 2022 Web
+
 WebGl TechArt Sandbox <br>
 • https://nulltale.itch.io/light-room <br>
 
