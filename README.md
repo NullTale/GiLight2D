@@ -1,12 +1,10 @@
 # GiLight2D
-Dev by NullTale - author's games, materials, graphics <br>
-[![Itch](https://img.shields.io/badge/Itch-Itch?logo=Itch.io&color=white)](https://nulltale.itch.io)
+Dev by NullTale<br>
 [![Twitter](https://img.shields.io/badge/Twitter-Twitter?logo=X&color=red)](https://x.com/NullTale)
-[![Tg](https://img.shields.io/badge/Tg-Telegram?logo=telegram&color=white)](https://t.me/nulltalescape)
-[![Discord](https://img.shields.io/badge/Discord-Discord?logo=discord&color=white)](https://discord.gg/CkdQvtA5un)
+[![Itch](https://img.shields.io/badge/Itch-Itch?logo=Itch.io&color=white)](https://nulltale.itch.io)
+[![Tg](https://img.shields.io/badge/Tg-Telegram?logo=telegram&color=white)](https://t.me/nulltalescape)<br>
 [![Asset Store](https://img.shields.io/badge/Asset%20Store-asd?logo=Unity&color=blue)](https://assetstore.unity.com/packages/tools/particles-effects/gilight2d-268033)
 [![Forum](https://img.shields.io/badge/Forum-asd?logo=ChatBot&color=blue)](https://forum.unity.com/threads/1542806/)
-
 
 Unity Urp Render Feature for 2D Global Illumination.<br>
 GiLight can be used both for conventional lighting and to create stylized visual effects ✨
@@ -19,9 +17,8 @@ WebGl TechArt Sandbox <br>
 Dontations for project support and RenderGraph compatibility <br>
 • https://boosty.to/nulltale/single-payment/donation/641586/target?share=target_link
 
+
 ![Gif](https://github.com/NullTale/GiLight2D/assets/1497430/d5eb3708-93e0-462a-829e-6931863ad2ad)
-
-
 
 ## What is it?
 In practice, this is an approach to lighting with rays, in which glow and shadows are created naturally, and the number of light sources is not limited.<br>
